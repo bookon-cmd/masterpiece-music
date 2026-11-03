@@ -1,0 +1,3421 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>名曲プレーヤー public domain - 音楽史と古楽器で巡るクラシック</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin-slow {
+      animation: spin-slow 18s linear infinite;
+    }
+    .paused {
+      animation-play-state: paused !important;
+    }
+    /* カスタムスクロールバー */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.2);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased p-2 sm:p-4 flex flex-col items-center justify-center min-h-screen select-none">
+
+  <!-- メインプレーヤーコンテナ -->
+  <div class="bg-slate-900/90 text-slate-100 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl max-w-[560px] w-full backdrop-blur-md flex flex-col gap-4">
+    
+    <!-- ヘッダー & 解説トグル -->
+    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+      <div class="flex items-baseline gap-2">
+        <h1 class="text-base sm:text-lg font-bold text-slate-100 tracking-tight flex items-center gap-1.5">
+          <span>名曲プレーヤー</span>
+        </h1>
+        <span class="text-[11px] font-mono text-slate-400">public domain</span>
+      </div>
+
+      <!-- 解説スイッチ -->
+      <div class="flex items-center gap-2">
+        <label for="descToggle" class="text-xs text-slate-300 cursor-pointer font-medium hover:text-white transition-colors">
+          解説
+        </label>
+        <button id="descToggle" type="button" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-slate-700" role="switch" aria-checked="false">
+          <span id="toggleKnob" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-slate-300 shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 時代・音楽史 フィルタータブ -->
+    <div>
+      <div class="text-[11px] font-semibold text-slate-400 mb-1.5 flex items-center justify-between">
+        <span>音楽史・時代別</span>
+        <span id="categoryCount" class="font-mono text-[10px] text-amber-400/90">150 曲表示中</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5" id="eraFilters">
+        <button data-era="all" class="era-btn px-2.5 py-1 text-xs rounded-lg font-medium transition-all bg-amber-500 text-slate-950 font-bold shadow-sm">すべて</button>
+        <button data-era="baroque" class="era-btn px-2.5 py-1 text-xs rounded-lg font-medium transition-all bg-slate-950/60 text-slate-400 border border-slate-800 hover:text-slate-200">バロック (1600-)</button>
+        <button data-era="classical" class="era-btn px-2.5 py-1 text-xs rounded-lg font-medium transition-all bg-slate-950/60 text-slate-400 border border-slate-800 hover:text-slate-200">古典派 (1750-)</button>
+        <button data-era="romantic" class="era-btn px-2.5 py-1 text-xs rounded-lg font-medium transition-all bg-slate-950/60 text-slate-400 border border-slate-800 hover:text-slate-200">ロマン派 (1820-)</button>
+        <button data-era="modern" class="era-btn px-2.5 py-1 text-xs rounded-lg font-medium transition-all bg-slate-950/60 text-slate-400 border border-slate-800 hover:text-slate-200">近代・印象派 (1890-)</button>
+        <button data-era="ambient" class="era-btn px-2.5 py-1 text-xs rounded-lg font-medium transition-all bg-slate-950/60 text-slate-400 border border-slate-800 hover:text-slate-200">アンビエント</button>
+      </div>
+    </div>
+
+    <!-- 楽器フィルターピル -->
+    <div class="flex flex-wrap items-center gap-1.5 text-xs">
+      <span class="text-[11px] text-slate-400 mr-0.5">楽器:</span>
+      <button data-inst="all" class="inst-btn px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-amber-400 border border-amber-500/30">すべて</button>
+      <button data-inst="piano" class="inst-btn px-2 py-0.5 rounded-full text-[11px] font-medium text-slate-400 border border-transparent hover:text-slate-200">🎹 ピアノ</button>
+      <button data-inst="strings" class="inst-btn px-2 py-0.5 rounded-full text-[11px] font-medium text-slate-400 border border-transparent hover:text-slate-200">🎻 弦楽・室内楽</button>
+      <button data-inst="plucked" class="inst-btn px-2 py-0.5 rounded-full text-[11px] font-medium text-slate-400 border border-transparent hover:text-slate-200">🪕 ギター・古楽器（チェンバロ）</button>
+    </div>
+
+    <!-- プレーヤー中央セクション（レコード盤 ＆ 曲情報） -->
+    <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 shadow-inner">
+      
+      <!-- レコード盤アニメーション -->
+      <div class="relative shrink-0 w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-slate-900 border-4 border-slate-800 shadow-2xl flex items-center justify-center overflow-hidden">
+        <!-- 溝ライン（同心円） -->
+        <div class="absolute inset-1.5 rounded-full border border-slate-800/60 pointer-events-none"></div>
+        <div class="absolute inset-3.5 rounded-full border border-slate-800/60 pointer-events-none"></div>
+        <div class="absolute inset-6 rounded-full border border-slate-800/60 pointer-events-none"></div>
+        
+        <!-- レコード本体（回転） -->
+        <div id="vinylRecord" class="relative w-full h-full flex items-center justify-center animate-spin-slow paused">
+          <!-- レコード中央レーベル -->
+          <div class="relative w-12 h-12 rounded-full bg-gradient-to-tr from-amber-600 to-amber-500 shadow-md flex items-center justify-center">
+            <!-- レコード穴（完全な幾何学的中心） -->
+            <div class="w-3 h-3 rounded-full bg-slate-950 border border-slate-700/80 shadow-inner z-10"></div>
+            <!-- 同心円デザインリング -->
+            <div class="absolute inset-1.5 rounded-full border border-amber-400/40 pointer-events-none"></div>
+          </div>
+        </div>
+
+        <!-- 針（スタイラス） -->
+        <div id="recordArm" class="absolute top-1 right-2 w-10 h-1 bg-slate-400 origin-top-right rotate-[-25deg] transition-transform duration-500 rounded-full shadow pointer-events-none">
+          <div class="absolute -left-1 -top-1 w-2.5 h-3 bg-amber-400 rounded-sm"></div>
+        </div>
+      </div>
+
+      <!-- 現在再生中の曲情報 & コントロール -->
+      <div class="flex-1 w-full flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span id="currentEraBadge" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-mono">BAROQUE</span>
+            <span id="currentInstBadge" class="text-[10px] text-slate-400">🎻 弦楽合奏</span>
+          </div>
+          <h2 id="currentTitle" class="text-base font-bold text-slate-100 leading-snug">G線上のアリア</h2>
+          <p id="currentComposer" class="text-xs text-amber-400/90 font-medium">J.S. バッハ (Johann Sebastian Bach)</p>
+        </div>
+
+        <!-- シークバー & 再生時間 -->
+        <div class="mt-3">
+          <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 mb-1">
+            <span id="currentTime">0:00</span>
+            <span id="totalTime">0:00</span>
+          </div>
+          <div id="progressContainer" class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden cursor-pointer relative">
+            <div id="progressBar" class="h-full bg-gradient-to-r from-amber-500 to-orange-500 w-0 transition-all duration-100"></div>
+          </div>
+        </div>
+
+        <!-- 操作ボタン群 -->
+        <div class="flex items-center justify-between mt-3 px-2">
+          <!-- シャッフル -->
+          <button id="shuffleBtn" class="text-slate-400 hover:text-amber-400 text-xs transition-colors p-1" title="シャッフル再生">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+          </button>
+
+          <!-- ループ -->
+          <button id="loopBtn" class="text-slate-400 hover:text-amber-400 text-xs transition-colors p-1" title="1曲ループ">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          </button>
+
+          <!-- 前の曲 -->
+          <button id="prevBtn" class="text-slate-200 hover:text-white transition-transform active:scale-90 p-1" title="前の曲">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg>
+          </button>
+
+          <!-- 再生 / 一時停止 -->
+          <button id="playBtn" class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/30 transition-transform active:scale-95" title="再生 / 一時停止">
+            <svg id="playIcon" class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+            <svg id="pauseIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
+          </button>
+
+          <!-- 次の曲 -->
+          <button id="nextBtn" class="text-slate-200 hover:text-white transition-transform active:scale-90 p-1" title="次の曲">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>
+          </button>
+
+          <!-- 音量ミュート -->
+          <button id="muteBtn" class="text-slate-400 hover:text-white text-xs transition-colors p-1" title="ミュート切替">
+            <svg id="volIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 📖 解説モードカード（トグルで展開） -->
+    <div id="descCard" class="hidden transition-all duration-300 rounded-xl bg-amber-500/10 border border-amber-500/25 p-3.5 text-xs text-slate-200 leading-relaxed shadow-sm">
+      <div class="flex items-center gap-1.5 font-bold text-amber-400 text-xs mb-2">
+        <span>💡</span>
+        <span id="descHeadline">この曲、どこかで聴いたことない？</span>
+      </div>
+      <p id="descTrivia" class="text-slate-300 mb-2.5">
+        テレビの教養番組や静かなカフェ、夜のCMの定番曲。
+      </p>
+
+      <div class="border-t border-amber-500/20 pt-2 flex flex-col gap-1.5">
+        <div>
+          <span class="font-bold text-amber-300">📖 作曲のウラ話:</span>
+          <span id="descHistory" class="text-slate-300 ml-1">
+            もともとはオーケストラ用の『管弦楽組曲第3番』の中の1曲でした。19世紀のバイオリニスト・ヴィルヘルミが、バイオリンの4本ある弦のうち一番太い「G線」1本だけで弾けるように編曲したことから『G線上のアリア』として世界的に有名になりました。
+          </span>
+        </div>
+        <div>
+          <span class="font-bold text-amber-300">👂 聴きどころ:</span>
+          <span id="descPoint" class="text-slate-300 ml-1">
+            下で穏やかに歩み続ける「通奏低音」と、その上で天に昇るようにどこまでも伸びるバイオリンのメロディの美しい対比に耳を傾けてみてください。
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- プレイリスト一覧 -->
+    <div>
+      <div class="text-[11px] font-semibold text-slate-400 mb-1.5 flex items-center justify-between">
+        <span>収録曲リスト</span>
+        <span class="text-[10px] text-slate-500 font-mono">Public Domain Audio</span>
+      </div>
+      <div id="playlistContainer" class="flex flex-col gap-1.5 max-h-[190px] overflow-y-auto pr-1">
+        <!-- JSで動的生成 -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 隠しHTML5オーディオ -->
+  <audio id="audioPlayer" preload="metadata"></audio>
+
+  <script>
+    // --- 収録曲データ（完全パブリックドメイン / CC0 / オープン音源） ---
+    const TRACKS = [
+    {
+        "id": "bach-air",
+        "title": "G線上のアリア",
+        "origTitle": "Air on the G String (BWV 1068)",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1730年頃",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/ec/Air_-_Air_Force_Strings_-_United_States_Air_Force_Band.mp3",
+        "headline": "誰もが一度は耳にした「癒やしの最高峰」",
+        "trivia": "テレビの教養番組や夜のCM、カフェBGMで必ず耳にする永遠のクラシック名曲。",
+        "history": "もともとは『管弦楽組曲第3番』のエール。19世紀のバイオリン巨匠ヴィルヘルミが、バイオリンの一番低いG線1本だけで弾けるよう編曲し世界中で大流行しました。",
+        "point": "静かに歩み続ける通奏低音の上で、天上の光のように美しく伸びるバイオリンの旋律に耳を傾けてみてください。"
+    },
+    {
+        "id": "bach-harpsichord",
+        "title": "チェンバロ協奏曲 イ長調 第1楽章",
+        "origTitle": "Harpsichord Concerto in A major, BWV 1055 - I. Allegro",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "plucked",
+        "instLabel": "🪕 チェンバロ・合奏",
+        "year": "1738年頃",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/f/ff/Bach_-_Harpsichord_Concerto_BWV_1055_-_1._Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "きらびやかで軽快な宮廷の響き！チェンバロの真骨頂",
+        "trivia": "バロック時代のヨーロッパ宮廷ドラマや、華やかなサロンのシーンでよく耳にする優雅な名曲。",
+        "history": "ピアノが普及する前の主役「チェンバロ」。鳥の羽軸で弦をはじくため、金属的で繊細なきらめく粒立ちが特徴です。",
+        "point": "弦をはじくチェンバロの軽快なパッセージと、弦楽アンサンブルとの掛け合いが生む躍動感が見事です。"
+    },
+    {
+        "id": "bach-lute",
+        "title": "リュート組曲 第2番 ハ短調 - 前奏曲",
+        "origTitle": "Lute Suite No. 2 in C minor, BWV 997 - I. Prelude",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "plucked",
+        "instLabel": "🪕 リュート独奏",
+        "year": "1740年頃",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/e1/Johann_Sebastian_Bach_-_BWV_997_-_Lute_Suite_No._2_in_C_minor_-_I_Prelude.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "中世・ルネサンスの面影を残す、温もりある古楽器のしらべ",
+        "trivia": "歴史映画や中世ファンタジーの世界観、静かな書斎の読書BGMとして世界中で愛されています。",
+        "history": "ギターの先祖とも言われる洋ナシ型の「リュート」。バッハもその深く内省的な音色を愛し専用の組曲を残しました。",
+        "point": "指先で直接弦をつま弾くアコースティックな温かさと、バッハならではの緻密な対位法が心に染みます。"
+    },
+    {
+        "id": "bach-prelude-1",
+        "title": "平均律クラヴィーア プレリュード 第1番",
+        "origTitle": "Well-Tempered Clavier Book 1, Prelude No. 1, BWV 846",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1722年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/b6/Kimiko_Ishizaka_-_Bach_-_Well-Tempered_Clavier%2C_Book_1_-_01_Prelude_No._1_in_C_major%2C_BWV_846.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "グノーの『アヴェ・マリア』の伴奏としても名高いアルペジオ",
+        "trivia": "結婚式や祈りの場面、映画やCMで誰もが聴いたことのある、呼吸を整えてくれる名曲。",
+        "history": "鍵盤音楽の旧約聖書と呼ばれる曲集のオープニング。後にグノーがこの上にメロディを重ねて『アヴェ・マリア』を作りました。",
+        "point": "一切の無駄を削ぎ落とした、波のように寄せては返す純粋な分散和音。集中したい作業の導入に最適です。"
+    },
+    {
+        "id": "bach-goldberg-aria",
+        "title": "ゴールドベルク変奏曲: アリア",
+        "origTitle": "Goldberg Variations, BWV 988 - Aria",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1741年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Kimiko_Ishizaka_-_01_-_Aria.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "不眠症の伯爵のために書かれた、至福の瞑想ピアノ",
+        "trivia": "映画『羊たちの沈黙』や数多くの名画の読書・思索シーンで印象的に使われる永遠の傑作。",
+        "history": "カイザーリンク伯爵が眠れない夜に聴くためにバッハに依頼した変奏曲の冒頭を飾るサラバンド。静謐で深い安らぎに満ちています。",
+        "point": "装飾音符の繊細な揺らぎと、一音一音に込められた深い祈りのような落ち着きをお楽しみください。"
+    },
+    {
+        "id": "bach-brandenburg-3-1",
+        "title": "ブランデンブルク協奏曲 第3番 第1楽章",
+        "origTitle": "Brandenburg Concerto No. 3 in G major, BWV 1048 - I. Allegro",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1721年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Bach_-_Brandenburg_Concerto_No._3_-_1._Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "弦楽器だけで織りなす、生命力と歓喜あふれる名アンサンブル",
+        "trivia": "朝のニュース番組や爽やかなオープニングBGMの定番として知られるバロックの金字塔。",
+        "history": "バイオリン3、ビオラ3、チェロ3、通奏低音という弦楽器のみの特殊な編成で書かれた、対位法の究極の傑作です。",
+        "point": "各パートがまるで会話するようにめまぐるしくテーマを受け渡していく、立体的でスリリングな掛け合いが魅力です。"
+    },
+    {
+        "id": "bach-brandenburg-3-3",
+        "title": "ブランデンブルク協奏曲 第3番 第3楽章",
+        "origTitle": "Brandenburg Concerto No. 3, BWV 1048 - III. Allegro",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1721年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Bach_-_Brandenburg_Concerto_No._3_-_3._Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "疾走する16分音符！バッハ最高のエネルギー",
+        "trivia": "祝典やパレード、前向きな気分になりたい時にピッタリの活気あふれる楽章。",
+        "history": "第2楽章の短い和音の橋渡しを経て、突如として怒涛の勢いで雪崩れ込むフィナーレ。バッハの天才的推進力が炸裂します。",
+        "point": "途切れることなく波のように押し寄せる弦楽器の連符が、脳の回転を活性化してくれます。"
+    },
+    {
+        "id": "bach-cello-prelude",
+        "title": "無伴奏チェロ組曲 第1番 前奏曲",
+        "origTitle": "Cello Suite No. 1 in G major, BWV 1007 - I. Prélude",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 チェロ独奏",
+        "year": "1720年頃",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/4/43/JOHN_MICHEL_CELLO-J_S_BACH_CELLO_SUITE_1_in_G_Prelude.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "チェロ1本で宇宙を描く… 誰もが知る深い低音の響き",
+        "trivia": "CMや映画の静寂シーン、夜のドキュメンタリーで必ず耳にするチェロ独奏曲の最高峰。",
+        "history": "長年忘れ去られていた楽譜を、13歳の天才チェリスト・カザルスがバルセロナの古本屋で偶然発見し世界に広めました。",
+        "point": "単音しか出せない楽器でありながら、巧みなアルペジオによって伴奏と主旋律が同時に聞こえてくる奇跡の構造です。"
+    },
+    {
+        "id": "vivaldi-spring-1",
+        "title": "『四季』より「春」第1楽章 アレグロ",
+        "origTitle": "The Four Seasons: Spring, RV 269 - I. Allegro",
+        "composer": "A. ヴィヴァルディ",
+        "composerEn": "Antonio Vivaldi",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1725年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/1/18/The_Modena_Chamber_Orchestra_-_Vivaldi%27s_Spring%2C_RV_269_-_I._Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "春の訪れを告げる小鳥たちの歌！世界で最も親しまれるバロック",
+        "trivia": "春の訪れ、お祝い、晴天の朝のBGMとして世界中で最も親しまれているクラシックの超名曲。",
+        "history": "自作のソネット（詩）に基づいて、小鳥のさえずりやせせらぎ、春の嵐までを音楽でリアルに描写した標題音楽の先駆けです。",
+        "point": "独奏バイオリンが3本のバイオリンと競い合って鳥のさえずりを真似る、華やかで明るい掛け合いにご注目ください。"
+    },
+    {
+        "id": "vivaldi-spring-2",
+        "title": "『四季』より「春」第2楽章 ラルゴ",
+        "origTitle": "The Four Seasons: Spring, RV 269 - II. Largo",
+        "composer": "A. ヴィヴァルディ",
+        "composerEn": "Antonio Vivaldi",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1725年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/3/39/The_Modena_Chamber_Orchestra_-_Vivaldi%27s_Spring%2C_RV_269_-_II._Largo.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "牧草地で眠る山羊飼いと、忠実な番犬の鳴き声",
+        "trivia": "穏やかな昼下がりの読書やカフェBGMとして愛好される、極上の静けさを持つ緩徐楽章。",
+        "history": "バイオリンの旋律は「花咲く野原で眠る山羊飼い」、ビオラの低い刻みは「吠える番犬」を表しています。",
+        "point": "ささやくように揺れる弦の伴奏に乗せて、歌うように奏でられる独奏バイオリンの甘美なメロディ。"
+    },
+    {
+        "id": "vivaldi-summer-3",
+        "title": "『四季』より「夏」第3楽章 嵐のプレスト",
+        "origTitle": "The Four Seasons: Summer, RV 315 - III. Presto",
+        "composer": "A. ヴィヴァルディ",
+        "composerEn": "Antonio Vivaldi",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1725年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/1/17/The_Modena_Chamber_Orchestra_-_Vivaldi%27s_Summer%2C_RV_315_-_III._Presto.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "激しい雷雨と雹の嵐！ロックのような猛スピードの緊迫感",
+        "trivia": "フィギュアスケートや劇的な映画のクライマックスで定番の、超絶技巧バトル曲。",
+        "history": "猛暑の空が一転し、雹が降り注ぎ作物をなぎ倒す自然の猛威を、弦楽器の猛烈なトレモロと下降音階で表現しています。",
+        "point": "まるで雷鳴が轟くかのような全員の激しいアタックと、独奏バイオリンの息をもつかせぬ超高速パッセージ。"
+    },
+    {
+        "id": "vivaldi-autumn-1",
+        "title": "『四季』より「秋」第1楽章 アレグロ",
+        "origTitle": "The Four Seasons: Autumn, RV 293 - I. Allegro",
+        "composer": "A. ヴィヴァルディ",
+        "composerEn": "Antonio Vivaldi",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1725年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/c4/The_Modena_Chamber_Orchestra_-_Vivaldi%27s_Autumn%2C_RV_293_-_I._Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "収穫の喜びと農民たちの陽気なダンス！",
+        "trivia": "秋の味覚フェアやフェスティバルのBGMでおなじみの、心弾むリズムが特徴の名曲。",
+        "history": "農民たちが豊作を祝って踊り、酒を酌み交わす様子が生き生きと描かれています。途中でお酒に酔って千鳥足になる様子も音で表現されています。",
+        "point": "弾むような明るいリフレイン（ロンド風主題）と、独奏者が即興的に華麗なパッセージを紡ぐ楽しさ。"
+    },
+    {
+        "id": "vivaldi-winter-2",
+        "title": "『四季』より「冬」第2楽章 ラルゴ",
+        "origTitle": "The Four Seasons: Winter, RV 297 - II. Largo",
+        "composer": "A. ヴィヴァルディ",
+        "composerEn": "Antonio Vivaldi",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1725年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/8/8b/The_Modena_Chamber_Orchestra_-_Vivaldi%27s_Winter%2C_RV_297_-_II._Largo.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "暖炉の前でくつろぐ至福の時間… 心温まる冬のバラード",
+        "trivia": "冬のイルミネーションやホットドリンクのCMで流れる、クラシック屈指の温かいメロディ。",
+        "history": "「外は冷たい雨が降りしきる中、暖炉のそばで満ち足りた静かなひとときを過ごす」という詩に基づいています。",
+        "point": "雨音を表す弦のピチカート（弦を指ではじく音）に乗せて、独奏バイオリンが優しく歌い上げるメロディの美しさ。"
+    },
+    {
+        "id": "vivaldi-mandolin-1",
+        "title": "2つのマンドリンのための協奏曲 第1楽章",
+        "origTitle": "Concerto for 2 Mandolins in G major, RV 532 - I. Allegro",
+        "composer": "A. ヴィヴァルディ",
+        "composerEn": "Antonio Vivaldi",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "plucked",
+        "instLabel": "🪕 マンドリン・合奏",
+        "year": "1736年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/c7/The_Modena_Chamber_Orchestra_-_Vivaldi%27s_Concerto_for_2_Mandolins_in_G_major%2C_RV_532_-_I._Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "コロコロと転がる愛らしい響き！古楽器マンドリンの名曲",
+        "trivia": "イタリアの古い街並みや地中海の旅番組で必ず流れる、爽やかでチャーミングな一曲。",
+        "history": "イタリア発祥の弦楽器マンドリンのためにヴィヴァルディが書いた傑作。2台のマンドリンが息をぴったり合わせて掛け合います。",
+        "point": "金属弦をピックで弾くマンドリン特有の軽やかで可憐な音色が、心をリフレッシュさせてくれます。"
+    },
+    {
+        "id": "vivaldi-mandolin-c",
+        "title": "マンドリン協奏曲 ハ長調 RV 425",
+        "origTitle": "Mandolin Concerto in C major, RV 425",
+        "composer": "A. ヴィヴァルディ",
+        "composerEn": "Antonio Vivaldi",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "plucked",
+        "instLabel": "🪕 マンドリン・合奏",
+        "year": "1725年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/6/60/Antonio_Vivaldi%2C_Mandolin_Concerto_in_C_major%2C_RV_425.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "映画『クレイマー、クレイマー』でも愛された名作",
+        "trivia": "アカデミー賞映画『クレイマー、クレイマー』のテーマ曲として世界的に大ヒットした名旋律。",
+        "history": "ヴィヴァルディがヴェネツィアのピエタ慈善院の少女オーケストラのために書いた協奏曲の一つです。",
+        "point": "素朴で親しみやすい旋律と、マンドリンの繊細なトレモロが織りなす温かいノスタルジー。"
+    },
+    {
+        "id": "handel-hallelujah",
+        "title": "メサイアより『ハレルヤ・コーラス』",
+        "origTitle": "Messiah, HWV 56 - Hallelujah Chorus",
+        "composer": "G.F. ヘンデル",
+        "composerEn": "George Frideric Handel",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1741年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/ce/Handel_-_messiah_-_44_hallelujah.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "英国王も立ち上がった！人類の喜びを讃える大合唱",
+        "trivia": "年末年始やクリスマス、祝福のイベントで知らない人はいない世界最高峰のオラトリオ。",
+        "history": "初演時、英国王ジョージ2世が感動のあまり思わず起立したことから、現在でもこの曲では起立して聴く伝統が残っています。",
+        "point": "「ハレルヤ！」の連呼と、弦楽器と声楽が一体となって押し寄せる圧倒的な祝祭感。"
+    },
+    {
+        "id": "scarlatti-sonata-g",
+        "title": "ソナタ ト長調 (K.391)",
+        "origTitle": "Keyboard Sonata in G major, K. 391",
+        "composer": "D. スカルラッティ",
+        "composerEn": "Domenico Scarlatti",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1750年頃",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/bd/Domenico_Scarlatti_G_Major_Sonata%2C_JMC%2CHan.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "スペインの陽光とカスタネットの響きを映した軽快な名品",
+        "trivia": "ピアノ学習者やカフェBGMで親しまれる、小気味よいステップのような楽しい曲。",
+        "history": "イタリア生まれのスカルラッティはスペイン王室に仕え、フラメンコやギターの奏法を取り入れた555曲ものソナタを残しました。",
+        "point": "軽快なスタッカートと、左手のダイナミックな跳躍がもたらす弾むようなグルーヴ感。"
+    },
+    {
+        "id": "scarlatti-sonata-b",
+        "title": "ソナタ ロ短調 (K.27)",
+        "origTitle": "Keyboard Sonata in B minor, K. 27",
+        "composer": "D. スカルラッティ",
+        "composerEn": "Domenico Scarlatti",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "plucked",
+        "instLabel": "🪕 チェンバロ独奏",
+        "year": "1738年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/95/Scarlatti_Sonata_B_Minor_K27.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "静かにもの思う午後に… 憂いを含んだバロックの美学",
+        "trivia": "歴史映画の宮廷シーンや、静かな作業・思索BGMとして人気の高い名品。",
+        "history": "スカルラッティの作品の中でもひときわ叙情的で、後のロマン派を先取りしたようなメランコリックな美しさを持っています。",
+        "point": "ため息のような下降音階と、チェンバロの弦が繊細に消えゆく余韻の美しさ。"
+    },
+    {
+        "id": "rameau-sauvages",
+        "title": "『未開人』(クラヴサン新曲集)",
+        "origTitle": "Nouvelles Suites de Pièces de Clavecin - Les Sauvages",
+        "composer": "J.P. ラモー",
+        "composerEn": "Jean-Philippe Rameau",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "plucked",
+        "instLabel": "🪕 チェンバロ独奏",
+        "year": "1728年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/ec/Jean-Philippe_Rameau_-_Les_Sauvages.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "パリでアメリカ先住民の踊りを見た衝撃から生まれた名曲",
+        "trivia": "CMや映画の舞踏会シーンで有名な、一度聴いたら忘れられないエキゾチックなリフ。",
+        "history": "1725年にパリを訪れた北米ルイジアナの先住民が踊りを披露した際、その力強いリズムに感銘を受けたラモーが作曲しました。",
+        "point": "チェンバロとは思えないほどリズミカルでパーカッシブな反復ビートが癖になります。"
+    },
+    {
+        "id": "telemann-fantasia-3",
+        "title": "無伴奏フルートのための幻想曲 第3番",
+        "origTitle": "12 Fantasias for Solo Flute, TWV 40:4 - I. Largo - Vivace",
+        "composer": "G.P. テレマン",
+        "composerEn": "Georg Philipp Telemann",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 フルート独奏",
+        "year": "1732年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/cd/Georg_Philipp_Telemann_-_Fantasia_in_B_minor.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "伴奏なし！フルート1本で繰り広げられる優雅な一人芝居",
+        "trivia": "カフェの朝や自然を映す紀行番組で愛される、澄み切ったフルートの独奏曲。",
+        "history": "バッハの友人で当時ヨーロッパで最も人気のあった大作曲家テレマンが、フルートの魅力を極限まで引き出した傑作です。",
+        "point": "息遣いまで伝わってくるアコースティックな響きと、緩急の巧みなコントラスト。"
+    },
+    {
+        "id": "vivaldi-concerto-2violins",
+        "title": "2つのバイオリンのための協奏曲 イ短調 第1楽章",
+        "origTitle": "Concerto for 2 Violins in A minor, Op. 3 No. 8 - I. Allegro",
+        "composer": "A. ヴィヴァルディ",
+        "composerEn": "Antonio Vivaldi",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1711年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/a/af/Vivaldi_-_Concerto_for_Two_Violins_in_A_minor%2C_Op._3%2C_No._8_-_1._Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "バッハも惚れ込んでオルガン用に編曲したバロックの傑作",
+        "trivia": "バイオリン教室の発表会やクラシック名曲集で定番の、情熱的で引き締まった名作。",
+        "history": "ヴィヴァルディの名声をヨーロッパ中に轟かせた名曲集『調和の霊感』の第8曲。バッハも熱心に研究し自ら編曲しました。",
+        "point": "2本のバイオリンが互いに追いつき追い越せと競い合うスリリングなパッセージ。"
+    },
+    {
+        "id": "mozart-nachtmusik",
+        "title": "アイネ・クライネ・ナハトムジーク 第1楽章",
+        "origTitle": "Eine kleine Nachtmusik, K. 525 - I. Allegro",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1787年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/24/Mozart_-_Eine_kleine_Nachtmusik_-_1._Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "古典派の最高峰！世界で最も親しまれるセレナーデ",
+        "trivia": "「タ・タ・タ・タン・タン・タン」の有名な冒頭。学校の音楽室からTVまで知らない人はいない大名曲。",
+        "history": "「小さな夜の音楽（小夜曲）」という意味。貴族の夜のパーティーのBGMとしてモーツァルトが31歳の時に作曲しました。",
+        "point": "端正で均整のとれた古典派ソナタ形式のお手本。快活で上品なメロディが気分を明るくしてくれます。"
+    },
+    {
+        "id": "beethoven-elise",
+        "title": "エリーゼのために",
+        "origTitle": "Für Elise, WoO 59",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1810年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/7/7b/FurElise.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "愛の告白？それとも…謎多きピアノ小品の最高傑作",
+        "trivia": "電話の保留音や踏切の警報音、時計の時報など、日常生活のいたるところで耳にする超有名曲。",
+        "history": "ベートーヴェンの死後に発見された小品。「エリーゼ」は想い人「テレーゼ」の自筆の読み間違いだったという説が有力です。",
+        "point": "「ミ・レ♯・ミ・レ♯・ミ」と繰り返される切ない主題と、情熱的な中間部のコントラストが見事です。"
+    },
+    {
+        "id": "beethoven-moonlight-1",
+        "title": "ピアノソナタ第14番『月光』第1楽章",
+        "origTitle": "Piano Sonata No. 14 'Moonlight', Op. 27 No. 2 - I. Adagio sostenuto",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1801年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/eb/Beethoven_Moonlight_1st_movement.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ルツェルン湖の月光に揺れる舟… 静寂と憂いの名曲",
+        "trivia": "ミステリーやサスペンスの夜の静寂シーン、名画の鑑賞シーンで定番のピアノ曲。",
+        "history": "詩人レルシュタープが「スイスのルツェルン湖の水面に揺れる月光のようだ」と評したことから『月光』の名が定着しました。",
+        "point": "右手の3連符が途切れることなく静かにさざ波を立て、その奥から哀愁に満ちた低音のメロディが浮かび上がります。"
+    },
+    {
+        "id": "beethoven-moonlight-2",
+        "title": "ピアノソナタ第14番『月光』第2楽章",
+        "origTitle": "Piano Sonata No. 14 'Moonlight' - II. Allegretto",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1801年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/4/47/Beethoven_Moonlight_2nd_movement.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "二つの深淵に咲いた一輪の花（リスト絶賛の愛らしい楽章）",
+        "trivia": "重厚な第1楽章と激しい第3楽章の間に置かれた、オアシスのような優美な小品。",
+        "history": "大ピアニスト・作曲家のフランツ・リストが「二つの深淵の間の一輪の花」と例えた名高いアレグレットです。",
+        "point": "軽やかで品のあるメヌエット風のリズム。肩の力を抜いてホッと一息つける優しさに満ちています。"
+    },
+    {
+        "id": "beethoven-moonlight-3",
+        "title": "ピアノソナタ第14番『月光』第3楽章 プレスト",
+        "origTitle": "Piano Sonata No. 14 'Moonlight' - III. Presto agitato",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1801年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/d4/Beethoven_Moonlight_3rd_movement.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "荒れ狂う嵐！ベートーヴェンの情熱が爆発する超絶技巧",
+        "trivia": "音ゲーや超絶技巧ピアノ動画で必ず登場する、熱狂的な大人気楽章。",
+        "history": "耳の不調という絶望の中で、運命に抗うかのように鍵盤を叩きつける圧倒的なエネルギーが込められています。",
+        "point": "下から上へと一気に駆け上がるアルペジオと、激しく打ち鳴らされるフォルテシモの連打。"
+    },
+    {
+        "id": "beethoven-pathetique-3",
+        "title": "悲愴ソナタ 第3楽章 ロンド",
+        "origTitle": "Piano Sonata No. 8 'Pathétique', Op. 13 - III. Rondo",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1798年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/8/87/Beethoven%2C_Sonata_No._8_in_C_Minor_Pathetique%2C_Op._13_-_III._Rondo_-_Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "哀愁のメロディが駆け抜ける、ベートーヴェン初期の最高傑作",
+        "trivia": "ポップスやドラマの挿入曲としても数多くアレンジされている大人気ロンド。",
+        "history": "ベートーヴェン自身がタイトルに「大悲愴（Grande Sonate Pathétique）」と名付けた珍しい作品です。",
+        "point": "親しみやすくどこか切ない主テーマが、形を変えて何度も登場する心地よい疾走感。"
+    },
+    {
+        "id": "beethoven-symphony-5",
+        "title": "交響曲第5番『運命』第1楽章",
+        "origTitle": "Symphony No. 5 in C minor, Op. 67 - I. Allegro con brio",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1808年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/5/5b/Ludwig_van_Beethoven_-_Symphonie_5_c-moll_-_1._Allegro_con_brio.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「ジャジャジャジャーン！」運命が扉を叩く音",
+        "trivia": "クラシック音楽を象徴する、全人類が知る4つの音符。",
+        "history": "弟子シンドラーに「運命はこのように扉を叩く」と語ったとされる逸話から『運命』の通称がつきました。",
+        "point": "わずか4音のモチーフだけで全編が構築された、人類史上屈指の完璧な建築美。"
+    },
+    {
+        "id": "beethoven-egmont",
+        "title": "『エグモント』序曲 作品84",
+        "origTitle": "Egmont Overture, Op. 84",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1810年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/20/Beethoven_EgmontOvertureOp.84_LudwigVanBeethoven-EgmontOvertureOp.84.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "圧政に立ち向かう英雄の魂！勝利への壮大なドラマ",
+        "trivia": "歴史映画の劇的なシーンや、勝利を掴むクライマックスで使われるドラマチックな名作。",
+        "history": "ゲーテの戯曲『エグモント』のために作曲。抑圧された民衆の苦しみから、自由を勝ち取る輝かしいファンファーレへと至ります。",
+        "point": "重苦しい序奏から一転し、弦楽器と金管が一体となって勝利を讃える感動的なコーダ。"
+    },
+    {
+        "id": "beethoven-ecossaise",
+        "title": "エコセーズ 変ホ長調 (WoO 86)",
+        "origTitle": "Écossaise in E-flat major, WoO 86",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1825年頃",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/94/Beethoven_-_Ecossaise_in_E-flat.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "スコットランド舞曲のリズム！軽快で愛らしい小品",
+        "trivia": "ピアノ発表会の定番曲。ベートーヴェンの茶目っ気あふれる一面が楽しめます。",
+        "history": "「エコセーズ」とはフランス語でスコットランド風という意味。宮廷で大流行した陽気なダンス音楽です。",
+        "point": "飛び跳ねるようなスタッカートと、次々に転がるメロディの楽しさ。"
+    },
+    {
+        "id": "mozart-k545",
+        "title": "ピアノソナタ第16番 ハ長調 K.545 第1楽章",
+        "origTitle": "Piano Sonata No. 16 in C major, K. 545 - I. Allegro",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1788年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/3/38/Wolfgang_Amadeus_Mozart_-_sonata_no._16_in_c_major%2C_k.545_%27sonata_facile%27_-_i._allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "誰もがピアノで一度は練習した「ドミソ・シレソ」の名旋律",
+        "trivia": "ピアノソナタの基本中の基本にして、モーツァルトの天真爛漫な魅力が凝縮された名作。",
+        "history": "モーツァルト自身が「初心者のためのソナタ（ソナタ・ファシレ）」と目録に記した、親しみやすさ抜群の曲です。",
+        "point": "曇り空を吹き飛ばすような、どこまでも明るく澄み渡ったハ長調の旋律。"
+    },
+    {
+        "id": "mozart-turkish",
+        "title": "トルコ行進曲 (ピアノソナタ第11番 第3楽章)",
+        "origTitle": "Piano Sonata No. 11 in A major, K. 331 - III. Rondo alla Turca",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1783年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/bf/Mozart_-_Piano_Sonata_No._11_in_A_major_-_III._Allegro_%28Turkish_March%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "世界中で愛される行進曲！エキゾチックな軍楽隊のリズム",
+        "trivia": "ゲームやCM、バラエティ番組で知らない人はいない、ノリノリの超有名曲。",
+        "history": "当時ウィーンで大流行していたオスマン帝国の軍楽隊（メフテル）の太鼓やシンバルの響きをピアノで模倣しました。",
+        "point": "装飾音符を効かせた小気味よいステップと、左手のパーカッシブな行進リズム。"
+    },
+    {
+        "id": "mozart-symphony-40",
+        "title": "交響曲第40番 ト短調 第1楽章",
+        "origTitle": "Symphony No. 40 in G minor, K. 550 - I. Molto allegro",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1788年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/99/Wolfgang_Amadeus_Mozart_-_Symphony_40_g-moll_-_1._Molto_allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「哀愁のシンフォニー」疾走する悲しみの美",
+        "trivia": "テレビ番組の緊迫した場面や名推理シーンで定番のクラシック交響曲。",
+        "history": "モーツァルトが41曲書いた交響曲の中で、わずか2曲しかない短調の交響曲の一つ。晩年の苦悩と天才の情熱が宿ります。",
+        "point": "ビオラの静かな刻みから、ため息のように歌い出されるバイオリンのあまりにも切ない第1主題。"
+    },
+    {
+        "id": "mozart-twinkle",
+        "title": "きらきら星変奏曲 (K.265)",
+        "origTitle": "12 Variations on 'Ah vous dirai-je, Maman', K. 265",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1781年頃",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/d6/KV.265_12_Variations_on_Ah_vous_dirai-je%2C_Maman_Mozart_JMC%2C_Han.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "あの『きらきら星』が、華麗なピアノ変奏曲に！",
+        "trivia": "世界中の子どもから大人まで親しまれる童謡のメロディによる、天才の遊び心あふれる名作。",
+        "history": "フランス民謡『ああ、お母さん聞いて』の旋律に魅せられたモーツァルトが、12通りの異なるスタイルでアレンジしました。",
+        "point": "左手の流れるようなアルペジオや、短調に変わる哀愁の変奏など、聴くたびに新しい発見があります。"
+    },
+    {
+        "id": "mozart-grand-partita",
+        "title": "『グラン・パルティータ』第3楽章 アダージョ",
+        "origTitle": "Serenade No. 10 'Grand Partita', K. 361 - III. Adagio",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 管楽アンサンブル",
+        "year": "1781年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/6/60/Mozart%27s_Serenade_No._10_%22Grand_Partita%22_-_III._Adagio._Andante_-_United_States_Marine_Band.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "映画『アマデウス』でサリエリを嫉妬に狂わせた神の音楽",
+        "trivia": "映画『アマデウス』で、神の声を聴いたかのような衝撃として描かれた至高の美しさ。",
+        "history": "13本の管楽器のために書かれたセレナーデ。クラリネットやオーボエが天上の歌声を奏でます。",
+        "point": "淡々と鼓動のように刻まれる低音の上で、オーボエが静かに天へと昇っていく息を呑む瞬間。"
+    },
+    {
+        "id": "mozart-flute-quartet",
+        "title": "フルート四重奏曲第1番 ニ長調 第1楽章",
+        "origTitle": "Flute Quartet No. 1 in D major, K. 285 - I. Allegro",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 フルートと弦楽",
+        "year": "1777年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Wolfgang_Amadeus_Mozart_-_Flute_Quartet_No._1_in_D_Major_-_1._Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "春の光のようにキラキラと輝くフルートの名曲",
+        "trivia": "晴れた休日の朝のカフェや、爽やかなドライブにぴったりの名作室内楽。",
+        "history": "フルート好きのオランダ人富豪の依頼でマンハイム滞在中に作曲されました。",
+        "point": "フルートの澄み渡る高音と、弦楽トリオの軽やかなサポートが織りなす極上の心地よさ。"
+    },
+    {
+        "id": "mozart-clarinet-quintet-3",
+        "title": "クラリネット五重奏曲 第3楽章 メヌエット",
+        "origTitle": "Clarinet Quintet in A major, K. 581 - III. Menuetto",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 クラリネットと弦楽",
+        "year": "1789年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/d2/Wolfgang_Amadeus_Mozart_-_Clarinet_Quintet_-_3._Menuetto.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "友人の名クラリネット奏者のために書かれた温かな室内楽",
+        "trivia": "宮廷の優雅なダンスステップを思わせる、心落ち着くメヌエット。",
+        "history": "親友の名手アントン・シュタトラーのために作曲。クラリネットの豊かな低音から透明な高音までが引き出されています。",
+        "point": "弦楽四重奏の温かい包容力と、クラリネットのまろやかな木管の響きの調和。"
+    },
+    {
+        "id": "haydn-surprise",
+        "title": "交響曲第94番『驚愕』第2楽章 アンダンテ",
+        "origTitle": "Symphony No. 94 'Surprise' - II. Andante",
+        "composer": "J. ハイドン",
+        "composerEn": "Joseph Haydn",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1791年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/4/42/Haydn%3B_Symphony_No._94_%22Surprise%22%2C_2._Andante.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "居眠り客を叩き起こせ！ハイドンの有名なユーモア",
+        "trivia": "静かなメロディの後に、突如「ドカーン！」と全員で大太鼓を鳴らすユーモアで世界的に有名。",
+        "history": "ロンドンのコンサートで食後に居眠りする貴族たちを驚かせるために、ハイドンが仕掛けた茶目っ気あふれる傑作です。",
+        "point": "親しみやすく素朴な民謡風のメロディと、巧妙に組み込まれた変奏の面白さ。"
+    },
+    {
+        "id": "haydn-trumpet",
+        "title": "トランペット協奏曲 変ホ長調 第1楽章",
+        "origTitle": "Trumpet Concerto in E-flat major, Hob. VIIe:1 - I. Allegro",
+        "composer": "J. ハイドン",
+        "composerEn": "Joseph Haydn",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽とトランペット",
+        "year": "1796年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/7/7f/Real_Filharmon%C3%ADa_de_Galicia_-_Haydn%27s_Trumpet_Concerto_in_E-flat_major%2C_Hob.VIIe-1_-_I._Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "『クイズダービー』のオープニングでもおなじみの名ファンファーレ",
+        "trivia": "TV番組のテーマやCMでおなじみの、明るく晴れやかなトランペット協奏曲の代名詞。",
+        "history": "半音階が出せる新型トランペットの発明を祝して作曲され、トランペットの歴史を変えた記念碑的作品です。",
+        "point": "金管楽器ならではの輝かしいファンファーレと、歌うような優雅な旋律の美しさ。"
+    },
+    {
+        "id": "clementi-sonatina",
+        "title": "ソナチネ 作品36の1 第3楽章 ヴィヴァーチェ",
+        "origTitle": "Sonatina in C major, Op. 36 No. 1 - III. Vivace",
+        "composer": "M. クレメンティ",
+        "composerEn": "Muzio Clementi",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1797年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Clementi%2C_Sonatina_N.1_-_3_Mov._Vivace.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ピアノを習った人なら誰もが胸躍らせた名小品",
+        "trivia": "ピアノ発表会やレッスンで必ず弾く、誰もが懐かしくなる名旋律。",
+        "history": "ピアノ教育の父と呼ばれるクレメンティが、学習者のために作曲した6つのソナチネの第1番フィナーレです。",
+        "point": "シンプルながら一切の澱みがない、きらきらと光る水滴のようなピアノの粒立ち。"
+    },
+    {
+        "id": "beethoven-prometheus",
+        "title": "『プロメテウスの創造物』序曲 作品43",
+        "origTitle": "The Creatures of Prometheus Overture, Op. 43",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1801年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Beethoven_Prometheus_Creatures_Op._43_No._1_-_Overture.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "英雄の火をもたらす壮大な祝祭の序曲",
+        "trivia": "ベートーヴェンの初期の活気と躍動感に満ちた、コンサートの定番オープニング曲。",
+        "history": "天界から火を盗んで人類に文明をもたらしたギリシャ神話の英雄プロメテウスのバレエ音楽です。",
+        "point": "力強い和音の導入から、駆け抜けるような弦楽器の疾走感への鮮やかな展開。"
+    },
+    {
+        "id": "mozart-clarinet-quintet-1",
+        "title": "クラリネット五重奏曲 第1楽章 アレグロ",
+        "origTitle": "Clarinet Quintet in A major, K. 581 - I. Allegro",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 クラリネットと弦楽",
+        "year": "1789年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/e9/Mozart_Quintett_Bassettklarinette_Allegro.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "クラリネット室内楽の頂点！天上の安らぎ",
+        "trivia": "映画やドラマの穏やかな家族の食卓や、サロンのBGMとして親しまれる名作。",
+        "history": "モーツァルト最晩年の澄み切った境地が表れた、室内楽史上屈指の名曲です。",
+        "point": "弦楽器の優しい和音の中から、滑り込むように歌い出すクラリネットの艶やかな音色。"
+    },
+    {
+        "id": "chopin-nocturne-2",
+        "title": "ノクターン 第2番 変ホ長調",
+        "origTitle": "Nocturne in E-flat major, Op. 9, No. 2",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1830年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/8/82/Nocturne_in_E_flat_major%2C_Op._9_no._2.mp3",
+        "headline": "ピアノの詩人が20歳で書いた、甘く切ない夜想曲",
+        "trivia": "映画『愛情物語』や数え切れないCMで使われ、クラシックに詳しくない人でも最初の1秒で分かるピアノ曲の代名詞。",
+        "history": "ショパンが祖国ポーランドの革命蜂起により、二度と帰れないと知りながら旅立った青春時代に書かれました。",
+        "point": "左手が優しく揺れるワルツのリズムを刻み、右手がまるでため息をつくように美しい装飾音で歌い上げます。"
+    },
+    {
+        "id": "tarrega-alhambra",
+        "title": "アルハンブラの思い出",
+        "origTitle": "Recuerdos de la Alhambra",
+        "composer": "F. タレガ",
+        "composerEn": "Francisco Tárrega",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "plucked",
+        "instLabel": "🪕 クラシックギター独奏",
+        "year": "1896年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/a/a3/Recuerdos_de_la_Alhambra.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ギター1本で奏でる奇跡！哀愁のトレモロ奏法",
+        "trivia": "旅番組のスペイン特集や、夕暮れ・黄昏時のBGMとして必ずと言っていいほど使われる名曲。",
+        "history": "スペイン・グラナダのイスラム名城「アルハンブラ宮殿」の栄華と没落の哀愁に心打たれて作曲しました。",
+        "point": "親指の低音伴奏の上で、3本の指が同じ弦を高速連打する「トレモロ奏法」が水滴のように響きます。"
+    },
+    {
+        "id": "chopin-nocturne-op32",
+        "title": "ノクターン 作品32の1 ロ長調",
+        "origTitle": "Nocturne in B major, Op. 32, No. 1",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1837年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/a/a7/Chopin%2C_Nocturne_op_32_no_1.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "穏やかな夜の語らいから、劇的な結末へ",
+        "trivia": "隠れた名作夜想曲。ロマンチックな夢想から一変するラストの衝撃が話題を呼びます。",
+        "history": "愛するジョルジュ・サンドとの交際が始まった幸福な時期に書かれた、甘美で洗練された名曲です。",
+        "point": "ささやくような穏やかな旋律が、突如としてオペラの劇的なレチタティーヴォへと変わるコントラスト。"
+    },
+    {
+        "id": "chopin-waltz-a-minor",
+        "title": "ワルツ イ短調 (遺作)",
+        "origTitle": "Waltz in A minor, B. 150, Op. posth.",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1848年頃",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/ee/Chopin_new_Waltz_A_minor.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "哀愁漂う旋律… ショパン晩年の切なく美しいワルツ",
+        "trivia": "映画やドラマの切ない別れや回想シーンで定番の、親しみやすい名ワルツ。",
+        "history": "ショパンの死後に遺品の中から発見された小品。故郷ポーランドを偲ぶ哀愁が胸に迫ります。",
+        "point": "哀しげな短調の主旋律と、中間部で一瞬だけパッと光が差すような長調への転調の儚さ。"
+    },
+    {
+        "id": "chopin-fantaisie-impromptu",
+        "title": "幻想即興曲 (作品66)",
+        "origTitle": "Fantaisie-Impromptu in C-sharp minor, Op. 66",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1834年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/2b/Fantaisie_Impromptu_Op._66.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "激しい疾走と甘美な中間部！ピアノ名曲の最高峰",
+        "trivia": "ショパンの作品で『ノクターン第2番』と並んで最も有名なスーパー大ヒット曲。",
+        "history": "ベートーヴェンの『月光ソナタ』第3楽章に似ていることを気にしたショパンが生前は出版を禁じていたという逸話があります。",
+        "point": "右手の16音符と左手の3連符が複雑に絡み合う超絶技巧と、中間部の天国的なメロディ。"
+    },
+    {
+        "id": "chopin-revolutionary",
+        "title": "練習曲 作品10の12『革命』",
+        "origTitle": "Étude Op. 10, No. 12 'Revolutionary'",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1831年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/91/Chopin_Etude_Op.10_No.12_Revolutionary_-_JMC%2C_Han_%28Modern_Piano_Harmony%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "祖国の悲報にショパンの怒りが爆発した激情のピアノ",
+        "trivia": "テレビの熱い勝負シーンやクライマックスで使われる、激しい情熱の代名詞。",
+        "history": "ワルシャワで起きた革命蜂起がロシア軍に鎮圧された報せを受け、絶望と怒りのあまり作曲したと言われています。",
+        "point": "左手が休むことなく怒涛の荒波のように駆け巡り、右手が悲痛な叫びを打ち鳴らす迫力。"
+    },
+    {
+        "id": "chopin-berceuse",
+        "title": "子守歌 (ベルスーズ) 作品57",
+        "origTitle": "Berceuse in D-flat major, Op. 57",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1844年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/4/44/1_Chopin%2C_Berceuse_%28piano-Christine_Hartley%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "揺りかごの揺れにまどろむ… 極上のアンビエント・ショパン",
+        "trivia": "睡眠用BGMや安らぎのひとときに愛される、ショパンで最も穏やかな傑作。",
+        "history": "左手が淡々と揺りかごを揺らす同じリズムを4小節単位で繰り返す中、右手が14回もの繊細な変奏を繰り広げます。",
+        "point": "まるで光の粒子が降ってくるかのような、極上の弱音（ピアニッシモ）の装飾音のきらめき。"
+    },
+    {
+        "id": "chopin-barcarolle",
+        "title": "舟歌 (バルカローレ) 作品60",
+        "origTitle": "Barcarolle in F-sharp major, Op. 60",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1846年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/1/12/Barcarolle-op-60.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ヴェネツィアのゴンドラに揺られて… ショパン後期の最高傑作",
+        "trivia": "音楽評論家やプロピアニストが「ショパンの最高峰」と口を揃える深遠な名曲。",
+        "history": "水上都市ヴェネツィアのゴンドラ漕ぎの歌に着想を得て作曲。豊潤な和声と愛の喜びが満ち溢れています。",
+        "point": "波に揺られるゴンドラのリズムと、重音で歌われるイタリア・オペラのような情熱的な二重唱。"
+    },
+    {
+        "id": "chopin-concerto-1-romance",
+        "title": "ピアノ協奏曲第1番 第2楽章 ロマンス",
+        "origTitle": "Piano Concerto No. 1, Op. 11 - II. Romance: Larghetto",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノと弦楽",
+        "year": "1830年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/a/a4/Chopin_-_Piano_Concerto_no._1%2C_Op._11_%28string_quartet%29-2.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「美しい月の光に照らされた夢」ショパンが愛した至純の楽章",
+        "trivia": "映画『ピアノ・レッスン』やロマンチックな映画の感動的な名場面で使われる名旋律。",
+        "history": "ショパンが初恋の女性コンスタンツィアへの想いを込めて作曲。「月の夜の瞑想のようなもの」と手紙に書き記しました。",
+        "point": "弱音器をつけた弦楽器の静寂の中から、ピアノが夢見るように歌い出す純愛のメロディ。"
+    },
+    {
+        "id": "liszt-liebestraum",
+        "title": "愛の夢 第3番 変イ長調",
+        "origTitle": "Liebestraum No. 3 in A-flat major",
+        "composer": "F. リスト",
+        "composerEn": "Franz Liszt",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1850年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/0/02/Franz_Liszt_-_Liebestraum%2C_Ab_Major.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「愛せる限り愛せ」ピアノの魔術師が残した究極のバラード",
+        "trivia": "数々のCMやフィギュアスケート、結婚式で愛されるロマン派ピアノの金字塔。",
+        "history": "詩人フライリヒラートの詩『おお、愛せる限り愛せ』につけた歌曲を、リスト自ら華麗なピアノ独奏用に編曲しました。",
+        "point": "両手の親指で交互に奏でられる甘いメロディと、その周りを包み込むきらびやかなアルペジオの霧。"
+    },
+    {
+        "id": "liszt-consolation-3",
+        "title": "コンソレーション (慰め) 第3番",
+        "origTitle": "Consolations, S. 172 - No. 3, Lento placido",
+        "composer": "F. リスト",
+        "composerEn": "Franz Liszt",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1850年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Franz_Liszt_-_Consolation_No._3%2C_Lento_placido.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "心に寄り添う安らぎのしらべ… リストの最も優しい名曲",
+        "trivia": "夜の読書や瞑想、疲れた心を癒やす静かなBGMとして絶大な人気を誇るピアノ曲。",
+        "history": "超絶技巧で知られるリストが、派手さをすべて削ぎ落として書いた祈りのような曲集。ショパンのノクターンへのオマージュとも言われます。",
+        "point": "穏やかに寄せては返すさざ波のような左手の伴奏と、優しく語りかけてくる右手のメロディ。"
+    },
+    {
+        "id": "schubert-serenade",
+        "title": "セレナーデ (白鳥の歌 D.957)",
+        "origTitle": "Schwanengesang, D. 957 - No. 4 'Ständchen'",
+        "composer": "F. シューベルト",
+        "composerEn": "Franz Schubert",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1828年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/ca/St%C3%A4ndchen_%28Schubert%29-Serenade_D957_No.4%2C_Player_Jason%2C_Han.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "窓辺で愛を乞う歌… シューベルト晩年の哀愁のメロディ",
+        "trivia": "「セレナーデ（小夜曲）」といえば誰もが思い浮かべる、永遠のクラシック名旋律。",
+        "history": "31歳で夭折したシューベルトが死の年に遺した傑作歌曲集の中の1曲。ギターの爪弾きを思わせる伴奏が特徴です。",
+        "point": "短調の切ない訴えかけから、後半で長調へと転調して切実な願いを歌い上げるドラマ。"
+    },
+    {
+        "id": "schubert-ave-maria",
+        "title": "アヴェ・マリア (エレンの歌第3番)",
+        "origTitle": "Ellens dritter Gesang (Ave Maria), D. 839",
+        "composer": "F. シューベルト",
+        "composerEn": "Franz Schubert",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 吹奏楽・アンサンブル",
+        "year": "1825年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Ave_Maria_in_Due_-_Concert_Band_-_United_States_Air_Force_Heritage_of_America_Band.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "祈りと平安のシンボル… 世界三大アヴェ・マリアの筆頭",
+        "trivia": "世界中の教会や結婚式、映画の感動的なラストシーンで必ず流れる聖なる名曲。",
+        "history": "ウォルター・スコットの叙事詩『湖上の美人』の登場人物エレンが、聖母マリアに父の無事を祈る場面の歌です。",
+        "point": "ゆったりと流れる敬虔なアルペジオに乗せて、心が洗われるような崇高なメロディが広がります。"
+    },
+    {
+        "id": "mendelssohn-spring-song",
+        "title": "無言歌集より『春の歌』作品62の6",
+        "origTitle": "Songs Without Words, Op. 62 - No. 6 'Spring Song'",
+        "composer": "F. メンデルスゾーン",
+        "composerEn": "Felix Mendelssohn",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1842年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/f/fd/ROSA_Pianist_-_Mendelssohn%27s_Songs_Without_Words%2C_Book_5%2C_Op_62%2C_No._6%2C_Allegretto_grazioso_%28Spring_Song%29%2C_MWV_U_161.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "花々が芽吹く爽やかな春風！ハープのような装飾音",
+        "trivia": "春の訪れを知らせるCMや店内BGMでおなじみの、誰もが知る爽快な名作。",
+        "history": "ロンドンの友人宅に滞在中、春の陽気に誘われて一気に書き上げたと伝えられています。",
+        "point": "メロディの前に置かれた愛らしい装飾アルペジオが、まるで春風に揺れる花びらのように舞います。"
+    },
+    {
+        "id": "brahms-hungarian-1",
+        "title": "ハンガリー舞曲 第1番 ト短調",
+        "origTitle": "Hungarian Dance No. 1 in G minor",
+        "composer": "J. ブラームス",
+        "composerEn": "Johannes Brahms",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1869年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/20/Hungarian_Dance_No._1_Brahms_US_Air_Force_Bands.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ジプシーの哀愁と熱狂！急ブレーキと急発進の快感",
+        "trivia": "フィギュアスケートやバラエティ番組でおなじみの、熱いロマ音楽のエッセンス。",
+        "history": "バイオリニスト・レメーニと旅をした際に聴いたジプシー（ロマ）音楽に魅了されたブラームスが採譜・編曲しました。",
+        "point": "急にゆっくりになったり猛スピードで疾走したりする、緩急の激しい情熱的なグルーヴ。"
+    },
+    {
+        "id": "brahms-intermezzo-117-1",
+        "title": "間奏曲 作品117の1 変ホ長調",
+        "origTitle": "Intermezzo in E-flat major, Op. 117 No. 1",
+        "composer": "J. ブラームス",
+        "composerEn": "Johannes Brahms",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1892年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/8/8d/Brahms_-_Intermezzo%2C_Op._117%2C_No._1.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「我が苦しみの揺りかご」晩年のブラームスが遺した究極の子守歌",
+        "trivia": "秋の夜長の読書や、静かに物思いに耽る時間に寄り添う大人のクラシック。",
+        "history": "スコットランドの古い民謡子守歌『眠れ、我が子よ』の詩を冒頭に掲げて書かれた、枯淡の境地の名作です。",
+        "point": "中音域で素朴に歌われるメロディと、それをそっと包み込む穏やかなゆらぎ。"
+    },
+    {
+        "id": "tchaikovsky-swan-lake",
+        "title": "『白鳥の湖』より「情景」",
+        "origTitle": "Swan Lake, Op. 20 - Scene: Moderato",
+        "composer": "P.I. チャイコフスキー",
+        "composerEn": "Pyotr Ilyich Tchaikovsky",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1876年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/0/03/Peter_Ilyich_Tchaikovsky-Swan_Lake-_Extract_from_Act_3.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "バレエ音楽の代名詞！白鳥オデットの悲劇のテーマ",
+        "trivia": "白鳥の湖といえばこれ！オーボエの哀愁のメロディは誰もが知る大名旋律。",
+        "history": "悪魔の呪いで白鳥の姿に変えられた王女オデットの悲しい宿命を描いた、バレエ史の最高傑作です。",
+        "point": "ハープのアルペジオに乗ってオーボエが歌い出し、やがて全合奏で悲劇的に盛り上がる圧倒的なドラマ。"
+    },
+    {
+        "id": "tchaikovsky-sugar-plum",
+        "title": "『くるみ割り人形』より「金平糖の精の踊り」",
+        "origTitle": "The Nutcracker, Op. 71 - Dance of the Sugar Plum Fairy",
+        "composer": "P.I. チャイコフスキー",
+        "composerEn": "Pyotr Ilyich Tchaikovsky",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽とチェレスタ",
+        "year": "1892年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/9d/Tchaikovsky_-_Dance_of_the_Sugar_Plum_Fairy_-_The_Nutcracker.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "クリスマスの魔法！チェレスタの神秘的な鈴の音",
+        "trivia": "クリスマスのCMや冬のファンタジー映画で必ず使われる、おとぎ話の世界の音楽。",
+        "history": "パリで発明されたばかりの打楽器「チェレスタ（金属板を鍵盤で叩く楽器）」をチャイコフスキーが秘密裏に導入しました。",
+        "point": "ガラス細工のような透明感のあるチェレスタの音色と、弦楽器のピチカート（指ではじく音）の絶妙な調和。"
+    },
+    {
+        "id": "dvorak-new-world",
+        "title": "交響曲第9番『新世界より』第1楽章",
+        "origTitle": "Symphony No. 9 'From the New World', Op. 95 - I. Adagio - Allegro",
+        "composer": "A. ドヴォルザーク",
+        "composerEn": "Antonín Dvořák",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1893年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Antonin_Dvorak_-_symphony_no._9_in_e_minor_%27from_the_new_world%27%2C_op._95_-_i._adagio_-_allegro_molto.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "大西洋を越えて… アメリカと望郷のボヘミアの魂",
+        "trivia": "第2楽章の『遠き山に日は落ちて（家路）』とともに、日本人に最も愛される交響曲の一つ。",
+        "history": "ニューヨークの音楽院院長として渡米したドヴォルザークが、新大陸アメリカの活気と祖国への想いを融合させました。",
+        "point": "ホルンが高らかに告げる力強いテーマと、ティンパニが打ち鳴らす雄大なエネルギー。"
+    },
+    {
+        "id": "grieg-morning-mood",
+        "title": "ペール・ギュント組曲より『朝』",
+        "origTitle": "Peer Gynt Suite No. 1, Op. 46 - I. Morning Mood",
+        "composer": "E. グリーグ",
+        "composerEn": "Edvard Grieg",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1875年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/7/7b/Henrik_Ibsen%2C_Edvard_Grieg_-_Morgenstemning_%28Morning_Mood%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "朝の訪れといえばこれ！日の出と清々しい空気の描写",
+        "trivia": "爽快な朝のニュース番組や、目覚ましの音楽として世界中で使われる名曲中の名曲。",
+        "history": "イプセンの戯曲『ペール・ギュント』の劇付随音楽。北欧ノルウェーの澄み切った大自然を感じさせます。",
+        "point": "フルートとオーボエが陽光のように交互に旋律を受け渡しながら、朝日が昇るようにオーケストラ全体へと広がっていきます。"
+    },
+    {
+        "id": "saint-saens-swan",
+        "title": "動物の謝肉祭より『白鳥』",
+        "origTitle": "The Carnival of the Animals - XIII. The Swan",
+        "composer": "C. サン＝サーンス",
+        "composerEn": "Camille Saint-Saëns",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 チェロとピアノ",
+        "year": "1886年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/5/51/The_Dying_Swan_-_black_angel_JMC_Han.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "水面を優雅に滑る白鳥… チェロの歌声が最も輝く名品",
+        "trivia": "バレエ『瀕死の白鳥』や、フィギュアスケートの演技曲として世界中で親しまれる名作。",
+        "history": "サン＝サーンスは生前、自分の評判を落とすとして『動物の謝肉祭』の出版を禁じましたが、この『白鳥』だけは例外として出版を認めました。",
+        "point": "ピアノのさざ波のようなアルペジオに乗って、チェロが悠然と歌うどこまでも伸びやかな主旋律。"
+    },
+    {
+        "id": "debussy-clair",
+        "title": "月の光",
+        "origTitle": "Clair de lune (Suite bergamasque)",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1905年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/be/Clair_de_lune_%28Claude_Debussy%29_Suite_bergamasque.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "モネの絵のように、光と夜のゆらぎを描いた印象派の金字塔",
+        "trivia": "映画『オーシャンズ11』の噴水ラストシーンや、数々の映画・アニメの感動的な夜の場面を彩ってきた傑作。",
+        "history": "詩人ヴェルレーヌの詩『月の光』に触発されて作曲。従来の明確な調性と決別し、音そのもので色彩を表現しました。",
+        "point": "息を呑むほど静かな弱音の出だしから、中間部で水しぶきが舞い散るように広がるきらびやかなアルペジオの展開が見事です。"
+    },
+    {
+        "id": "debussy-arabesque-1",
+        "title": "アラベスク 第1番",
+        "origTitle": "Deux Arabesques - No. 1, Andantino con moto",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1890年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/0/0f/Claude_Debussy_-_Premi%C3%A8re_Arabesque_-_Patrizia_Prati.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "風にそよぐ草木、水のせせらぎ… ドビュッシー初期の瑞々しい名曲",
+        "trivia": "CMや映画、爽やかな春のカフェBGMとして親しまれる、ピアノ学習者の憧れの1曲。",
+        "history": "「アラベスク」とはアラビア風の唐草模様を意味する美術用語。流れるような優美な曲線美が音で描かれています。",
+        "point": "右手と左手が絡み合うポリリズム（2対3のリズム）が生み出す、波打つような心地よい揺らぎ。"
+    },
+    {
+        "id": "debussy-arabesque-2",
+        "title": "アラベスク 第2番",
+        "origTitle": "Deux Arabesques - No. 2, Allegretto scherzando",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1890年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/8/89/Claude_Debussy_-_Deuxi%C3%A8me_Arabesque_-_Patrizia_Prati.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "木漏れ日の中を戯れる小鳥たちのような、軽やかなワルツ",
+        "trivia": "第1番と対をなす、明るく遊び心いっぱいの愛らしいピアノ小品。",
+        "history": "20代後半のドビュッシーが書いた若々しい作品。細かいトリルやスタッカートが散りばめられています。",
+        "point": "跳ねるようなステップのリズムと、きらめく装飾音がもたらす晴れやかな気分。"
+    },
+    {
+        "id": "debussy-fille",
+        "title": "亜麻色の髪の乙女 (前奏曲集 第1巻)",
+        "origTitle": "Préludes, Book 1 - No. 8 'La fille aux cheveux de lin'",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1910年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/8/8d/Claude_Debussy_-_I_Livre_Prelude_VIII..._%28...La_fille_aux_cheveux_de_lin%29_-_Patrizia_Prati.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "スコットランドの風と乙女の純真… 最も愛されるドビュッシー",
+        "trivia": "ポップスやCMのヒット曲の題材にもなった、誰もが心温まる極上のメロディ。",
+        "history": "詩人ルコント・ド・リールの詩集からインスピレーションを受けて作曲された、素朴で透明感ある小品です。",
+        "point": "ペンタトニック（五音音階）を用いた懐かしい旋律と、静かに寄り添う和音の温もり。"
+    },
+    {
+        "id": "debussy-danseuses",
+        "title": "デルフィの舞姫 (前奏曲集 第1巻)",
+        "origTitle": "Préludes, Book 1 - No. 1 'Danseuses de Delphes'",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1909年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/1/13/Claude_Debussy_-_I_Livre_Prelude_I..._%28...Danseuses_de_Delphes%29_-_Patrizia_Prati.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ルーヴル美術館の古代彫刻が動き出す、厳かな祈りの舞曲",
+        "trivia": "美術館の展示や歴史ドキュメンタリーで愛用される、古代ギリシャの静謐な世界観。",
+        "history": "ルーヴル美術館に所蔵されている古代ギリシャの柱頭彫刻「アカンサスの柱」の巫女たちを見て作曲しました。",
+        "point": "ゆったりと重々しい和音の行進と、神秘的な残響が生み出す瞑想的な時間。"
+    },
+    {
+        "id": "debussy-reverie",
+        "title": "夢 (レヴェリー)",
+        "origTitle": "Rêverie",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノとサックス",
+        "year": "1890年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/c0/Claude_Debussy_-_R%C3%AAverie_-_Arr_for_Soprano_saxophone_and_piano_-_David_Hernando_Vitores.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "まどろみの中の幻想… ドビュッシー初期の甘美な名品",
+        "trivia": "ジャズやポップスでもスタンダードとしてカバーされ続ける、うっとりするような名メロディ。",
+        "history": "若き日のドビュッシーが出版社のために書いた親しみやすい小品。本人は商業的すぎると謙遜しましたが大人気となりました。",
+        "point": "ゆったりと波打つ伴奏の上で、夢の世界へと誘うようなメランコリックな旋律。"
+    },
+    {
+        "id": "debussy-cathedrale",
+        "title": "沈める寺院 (前奏曲集 第1巻)",
+        "origTitle": "Préludes, Book 1 - No. 10 'La cathédrale engloutie'",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1910年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/7/78/La_Cath%C3%A9drale_engloutie_-_Claude_Debussy_-_performed_by_Ivan_Ilic.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "海底から鐘を響かせ浮上する古代の寺院… 壮大な音響詩",
+        "trivia": "SF映画や幻想文学の世界観にマッチする、ピアノ1台とは思えないダイナミックな響き。",
+        "history": "ブルターニュ地方に伝わる「海底に沈んだイスの町の大聖堂が、霧の朝に海から浮上して鐘を鳴らす」という伝説を描いています。",
+        "point": "海の底で鳴る鐘のような重厚な平行和音と、全合奏のように炸裂する壮大なクライマックス。"
+    },
+    {
+        "id": "debussy-reflets",
+        "title": "水に映る影 (映像 第1集)",
+        "origTitle": "Images, 1ère série - I. Reflets dans l'eau",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1905年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Debussy_%2C_Reflets_dans_l%27eau.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "水面の波紋と光の反射を描いた、ピアノ印象派の真骨頂",
+        "trivia": "ピアノの音色で水を表現した最高傑作として世界中で愛される名品。",
+        "history": "ドビュッシー自身が「ピアノ音楽に新しい発見をもたらした自信作」と友人に語った意欲作です。",
+        "point": "水滴がポトリと落ちて同心円を描くような冒頭から、光が乱反射するように広がるアルペジオ。"
+    },
+    {
+        "id": "debussy-plus-que-lente",
+        "title": "レントより遅く",
+        "origTitle": "La plus que lente (Valse)",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1910年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Debussy_La_Plus_que_Lente.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "パリのサロンの気だるい午後… 小粋で優雅な大人のワルツ",
+        "trivia": "大人のカフェバーや、ゆったりとしたリラックスタイムに最適なアンニュイな雰囲気。",
+        "history": "当時流行していたスローワルツ（レント）へのパロディとして、「それよりもさらに遅く！」とお茶目に作曲されました。",
+        "point": "テンポを自由自在に揺らしながら奏でられる、エスプリの効いた洒脱なメロディ。"
+    },
+    {
+        "id": "debussy-childrens-corner",
+        "title": "子供の領分 (ゴリウォーグのケークウォーク他)",
+        "origTitle": "Children's Corner - VI. Golliwogg's Cakewalk",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1908年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/6/67/Claude_Debussy_-_Children%27s_Corner.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "愛娘シュシュに捧げた、ジャズ感覚あふれる楽しい組曲",
+        "trivia": "黒人人形のコミカルなダンスを描いた、シンコペーションが楽しい人気曲。",
+        "history": "3歳の愛娘シュシュのために作曲。当時アメリカから伝わってきたばかりのラグタイム音楽のリズムを取り入れています。",
+        "point": "ノリの良いビートの合間に、ワーグナーの『トリスタンとイゾルデ』のパロディがユーモラスに顔を出します。"
+    },
+    {
+        "id": "debussy-danse-sacree",
+        "title": "神聖な舞曲 (ハープと弦楽合奏のための)",
+        "origTitle": "Danse sacrée et danse profane - I. Danse sacrée",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "plucked",
+        "instLabel": "🪕 ハープと弦楽",
+        "year": "1904年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/b2/Danse_Sacr%C3%A9e.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ハープの神秘的な音色が紡ぐ、古代の儀式のような静けさ",
+        "trivia": "美術館の企画展や、神秘的なリラクゼーションBGMとして愛好される古楽器風の名曲。",
+        "history": "新型ハープ（クロマティック・ハープ）の普及のために依頼されて作曲された、ハープ音楽の金字塔です。",
+        "point": "古風な教会旋法を用いた、厳かで幻想的なハープの爪弾きと弦楽器のハーモニー。"
+    },
+    {
+        "id": "debussy-danse-profane",
+        "title": "世俗的な舞曲 (ハープと弦楽合奏のための)",
+        "origTitle": "Danse sacrée et danse profane - II. Danse profane",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "plucked",
+        "instLabel": "🪕 ハープと弦楽",
+        "year": "1904年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/d8/Danse_Profane.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ハープが舞う華麗なワルツ！生命力に満ちた地上の踊り",
+        "trivia": "『神聖な舞曲』に続いて演奏される、きらびやかで官能的な人気曲。",
+        "history": "「神聖」が天上の祈りであるのに対し、「世俗」は地上の人間たちの情熱的なダンスを描いています。",
+        "point": "ハープのグリッサンド（弦を一気に撫でる奏法）が波のように広がる圧倒的な華やかさ。"
+    },
+    {
+        "id": "ravel-pavane",
+        "title": "亡き王女のためのパヴァーヌ",
+        "origTitle": "Pavane pour une infante défunte",
+        "composer": "M. ラヴェル",
+        "composerEn": "Maurice Ravel",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1899年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/d6/Maurice_Ravel_-_Th%C3%A9r%C3%A8se_Dussaut_-_Pavane_pour_une_infante_d%C3%A9funte.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ベラスケスの絵画を思わせる、スペイン王宮の哀愁のパヴァーヌ",
+        "trivia": "映画やCM、追悼の場面で使われる、ラヴェル屈指の甘美で高貴な名曲。",
+        "history": "ルーヴル美術館で見たスペイン宮廷画家ベラスケスの描いたマルガリータ王女の肖像画に着想を得て作曲しました。",
+        "point": "ゆったりとした足取りで踊られるパヴァーヌのリズムと、気品あふれる切ない旋律美。"
+    },
+    {
+        "id": "ravel-jeux-deau",
+        "title": "水の戯れ",
+        "origTitle": "Jeux d'eau",
+        "composer": "M. ラヴェル",
+        "composerEn": "Maurice Ravel",
+        "eras": [
+            "modern"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1901年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/c2/Ravel%27s_Jeux_d%27eau%2C_M._30_-_Anna_Sutyagina.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "噴水に舞う水しぶきと虹… 20世紀ピアノ音楽の夜明け",
+        "trivia": "超絶技巧ピアノの代表作。涼しげで爽快な水の描写が圧巻です。",
+        "history": "「水神が撫でる水に微笑む」という詩句を掲げ、噴水や滝、小川のせせらぎなど水が立てるあらゆる音を音像化しました。",
+        "point": "鍵盤の端から端まで駆け巡るアルペジオと、宝石のようにきらめく高音のトレモロ。"
+    },
+    {
+        "id": "satie-gymnopedie-1",
+        "title": "ジムノペディ 第1番",
+        "origTitle": "Gymnopédie No. 1",
+        "composer": "E. サティ",
+        "composerEn": "Erik Satie",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "AMBIENT",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1888年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/b7/Gymnopedie_No._1..ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "元祖アンビエント！「生活の邪魔をしない」家具の音楽",
+        "trivia": "雨の日のカフェや美術館、睡眠用BGMで必ず流れる、現代のリラックス音楽の原点。",
+        "history": "奇人サティが「家具のようにそこに置いてあっても意識を奪わない音楽」を目指して作曲。ブライアン・イーノらの現代アンビエントの直接のルーツとなりました。",
+        "point": "不協和音のようでなぜか心地よい浮遊感のある和音。同じリズムが静かに繰り返される瞑想の時間をお楽しみください。"
+    },
+    {
+        "id": "satie-gymnopedie-2",
+        "title": "ジムノペディ 第2番",
+        "origTitle": "Gymnopédie No. 2",
+        "composer": "E. サティ",
+        "composerEn": "Erik Satie",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "AMBIENT",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1888年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/20/Gymnopedie_No._2_%28ISRC_USUAN1100786%29.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "第1番よりもさらに静かで内省的な、静寂のピアノ",
+        "trivia": "静まり返った夜の読書や、心を落ち着かせたい作業時間にぴったりの隠れた名品。",
+        "history": "古代ギリシャの青年の踊りから着想された3部作の第2曲。淡々とした歩みの中に深い静けさが宿ります。",
+        "point": "シンプルを極めた音と音の間の「余白」が生み出す、心地よい静寂の味わい。"
+    },
+    {
+        "id": "satie-gymnopedie-3",
+        "title": "ジムノペディ 第3番",
+        "origTitle": "Gymnopédie No. 3",
+        "composer": "E. サティ",
+        "composerEn": "Erik Satie",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "AMBIENT",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1888年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/1/18/Gymnopedie_No._3_%28ISRC_USUAN1100785%29.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ドビュッシーも絶賛しオーケストラ用に編曲した3部作の完結編",
+        "trivia": "親友ドビュッシーがサティの才能を世に知らしめるために管弦楽用に編曲した名作。",
+        "history": "劇的な盛り上がりを完全に拒絶し、最後まで一定のテンポと抑えた音量で語りかけます。",
+        "point": "哀愁を含んだ優しいメロディが、静かに夜の闇に溶け込んでいくようなエンディング。"
+    },
+    {
+        "id": "satie-gnossienne-1",
+        "title": "グノシエンヌ 第1番",
+        "origTitle": "Gnossienne No. 1",
+        "composer": "E. サティ",
+        "composerEn": "Erik Satie",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "AMBIENT",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1890年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/91/Satie_-_Gnossienne_1.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "小節線のない楽譜！時を忘れさせるエキゾチックな神秘",
+        "trivia": "映画『ショコラ』やアート番組で有名な、異国情緒と哀愁のピアノ名曲。",
+        "history": "サティがギリシャの古代都市クノッソスやグノーシス主義に着想を得て作曲。楽譜には小節線が一切ありません。",
+        "point": "東洋的な旋法による問いかけるようなフレーズと、淡々と反復される瞑想的なリズム。"
+    },
+    {
+        "id": "satie-gnossienne-2",
+        "title": "グノシエンヌ 第2番",
+        "origTitle": "Gnossienne No. 2",
+        "composer": "E. サティ",
+        "composerEn": "Erik Satie",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "AMBIENT",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1890年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Gnossienne_2_%28Satie%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「頭を開いて」楽譜に書かれた奇妙な指示と不思議な浮遊感",
+        "trivia": "深夜の作業や思索に没入したい時に最適な、ゾーンに入りやすいミニマル音楽。",
+        "history": "サティは楽譜に「驚いて」「舌の上に置くように」といった独自の詩的な演奏指示を書き込みました。",
+        "point": "同じパターンの反復が生み出すトランス感と、どこかユーモラスで哀しい独自の美学。"
+    },
+    {
+        "id": "satie-gnossienne-3",
+        "title": "グノシエンヌ 第3番",
+        "origTitle": "Gnossienne No. 3",
+        "composer": "E. サティ",
+        "composerEn": "Erik Satie",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "AMBIENT",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1890年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/1/10/Gnossienne_3_%28Satie%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "深い夜の底へ… 哀愁を帯びたアンビエント・ピアノの傑作",
+        "trivia": "夜カフェタイムや深夜の読書BGMとして世界中で愛好される、サティ独自の世界観。",
+        "history": "1889年のパリ万博でサティが衝撃を受けたインドネシアのガムラン音楽のエッセンスが昇華されています。",
+        "point": "同じフレーズが静かに繰り返され、時間が止まったかのような感覚を味わえます。"
+    },
+    {
+        "id": "satie-gnossienne-4",
+        "title": "グノシエンヌ 第4番",
+        "origTitle": "Gnossienne No. 4",
+        "composer": "E. サティ",
+        "composerEn": "Erik Satie",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "AMBIENT",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1891年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/e9/Gnossienne_4_%28Satie%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "祈りの鐘のように響く、静謐で透明なサティの世界",
+        "trivia": "死後に出版された隠れた名作。第1〜3番とはまた異なる穏やかな瞑想性を持っています。",
+        "history": "サティが自ら立ち上げた秘密結社「イエスの導く芸術の首位教区教会」の時代に書かれた教会風の小品です。",
+        "point": "澄み切った高音の響きと、淡々とした低音の歩みが織りなすスピリチュアルな安らぎ。"
+    },
+    {
+        "id": "satie-gnossienne-5",
+        "title": "グノシエンヌ 第5番",
+        "origTitle": "Gnossienne No. 5",
+        "composer": "E. サティ",
+        "composerEn": "Erik Satie",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "AMBIENT",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1889年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/0/07/Gnossienne_5_%28Satie%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "連作の中で唯一の軽快なリズム！東欧民謡のステップ",
+        "trivia": "リズミカルで軽快なため、カフェの昼下がりのBGMとして非常に人気の高い1曲。",
+        "history": "実はグノシエンヌの中で最も初期（1889年）に書かれた作品で、躍動感のあるダンス風のリズムを持ちます。",
+        "point": "弾むような左手のリズムと、哀愁を帯びた東欧風のメロディの絶妙なマッチ。"
+    },
+    {
+        "id": "satie-gnossienne-6",
+        "title": "グノシエンヌ 第6番",
+        "origTitle": "Gnossienne No. 6",
+        "composer": "E. サティ",
+        "composerEn": "Erik Satie",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "AMBIENT",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1897年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/2b/Gnossienne_6_%28Satie%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "静かに光が溶けていく… どこまでも透明なアンビエント",
+        "trivia": "睡眠導入やマインドフルネス瞑想で好まれる、究極の脱力音楽。",
+        "history": "サティの作品集の中でも特に削ぎ落とされた構成で、後のミニマル・ミュージックを半世紀以上先取りしています。",
+        "point": "無駄な装飾を排した、純粋な音の響きそのものの美しさに包まれます。"
+    },
+    {
+        "id": "satie-gnossienne-7",
+        "title": "グノシエンヌ 第7番",
+        "origTitle": "Gnossienne No. 7",
+        "composer": "E. サティ",
+        "composerEn": "Erik Satie",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "AMBIENT",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1897年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Gnossienne_7_%28Satie%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "サティのグノシエンヌ連作を締めくくる、神秘の完結編",
+        "trivia": "サティのマニアや愛好家に愛される、静謐な完結編。",
+        "history": "連作の最後を飾る作品として、サティの哲学的・神秘的な思考が凝縮されています。",
+        "point": "淡々と語りかけるようなフレーズが、聴く人の心を静寂へと導きます。"
+    },
+    {
+        "id": "holst-jupiter",
+        "title": "組曲『惑星』より「木星 (ジュピター)」",
+        "origTitle": "The Planets, Op. 32 - IV. Jupiter, the Bringer of Jollity",
+        "composer": "G. ホルスト",
+        "composerEn": "Gustav Holst",
+        "eras": [
+            "modern"
+        ],
+        "eraLabel": "MODERN",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1916年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Gustav_Holst_-_the_planets%2C_op._32_-_iv._jupiter%2C_the_bringer_of_jollity.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "平原綾香の『Jupiter』でも社会現象となった雄大な讃歌",
+        "trivia": "イギリスの愛国歌『祖国よ、我は汝に誓う』や平原綾香の大ヒット曲として日本中で愛される超名旋律。",
+        "history": "占星術に夢中だったホルストが、木星の持つ「快楽と歓喜をもたらす力」を描いた壮大なオーケストラ組曲です。",
+        "point": "疾走する祝祭の導入部から、中間部で突如として現れる胸を打つ崇高で雄大な讃歌のメロディ。"
+    },
+    {
+        "id": "handel-water-music-hornpipe",
+        "title": "『水上の音楽』より ホーンパイプ",
+        "origTitle": "Water Music Suite in F major, HWV 348 - Hornpipe",
+        "composer": "G.F. ヘンデル",
+        "composerEn": "George Frideric Handel",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1717年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/b3/7-George_Frideric_Handel_-_Water_Music_Suite_in_F_major_%28Bourre-Hornpipe%29_HWV348.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "テムズ川の舟遊びで国王を熱狂させた華麗なファンファーレ",
+        "trivia": "英国王室の慶祝行事や、祝祭のオープニングBGMでおなじみの名旋律。",
+        "history": "英国王ジョージ1世のテムズ川舟遊びのために作曲。国王があまりの素晴らしさに3度も全曲をアンコール演奏させた逸話があります。",
+        "point": "軽快なホーンパイプのリズムに乗って、ホルンと弦楽器が掛け合う晴れやかなサウンド。"
+    },
+    {
+        "id": "handel-fireworks-minuet",
+        "title": "『王宮の花火の音楽』第5曲 メヌエット",
+        "origTitle": "Music for the Royal Fireworks, HWV 351 - V. Menuet",
+        "composer": "G.F. ヘンデル",
+        "composerEn": "George Frideric Handel",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1749年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/0/0e/George_Frideric_Handel_-_Music_for_the_Royal_Fireworks_5_%28Minuet%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ロンドンの夜空に咲いた平和の祈り",
+        "trivia": "祝典や記念行事の締めくくりにふさわしい、堂々とした優雅なメヌエット。",
+        "history": "オーストリア継承戦争の終結を祝う花火大会のために作曲。花火が点火台に引火して大騒動になる中、ヘンデルの音楽だけが大絶賛されました。",
+        "point": "堂々たる王室の気品と、誰でも口ずさめる親しみやすいステップのリズム。"
+    },
+    {
+        "id": "purcell-abdelazer-rondeau",
+        "title": "『アブデラザール』組曲より ロンド",
+        "origTitle": "Abdelazer Suite, Z. 570 - II. Rondeau",
+        "composer": "H. パーセル",
+        "composerEn": "Henry Purcell",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 弦楽合奏",
+        "year": "1695年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/a/a9/Purcell_Henry_-_Abdelazer_Suite.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ブリテンの『青少年のための管弦楽入門』のテーマ原曲！",
+        "trivia": "クラシック解説番組や教育テレビで必ず耳にする、英国バロックの超有名テーマ。",
+        "history": "イギリス最大の作曲家パーセルが戯曲のために書いた劇付随音楽。後にブリテンがこの主題を変奏曲として用いて世界的ブームになりました。",
+        "point": "一度聴いたら頭から離れない、威厳に満ちた短調の堂々たるメロディ。"
+    },
+    {
+        "id": "albinoni-oboe-adagio",
+        "title": "オーボエ協奏曲 ニ短調 第2楽章 アダージョ",
+        "origTitle": "Oboe Concerto in D minor, Op. 9 No. 2 - II. Adagio",
+        "composer": "T. アルビノーニ",
+        "composerEn": "Tomaso Albinoni",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "strings",
+        "instLabel": "🎻 オーボエと弦楽",
+        "year": "1722年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/da/Albinoni%2C_Concerto_for_Oboe_and_Strings_No._2_in_D_minor%2C_Op._9%2C_II._Adagio.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ヴェネツィアの水面に浮かぶ哀愁… オーボエ至高の祈り",
+        "trivia": "歴史映画の切ないシーンや夜の静寂BGMとして愛される、涙を誘う名曲。",
+        "history": "バッハも深く敬愛したアルビノーニの傑作協奏曲。木管楽器オーボエの人間味あふれる哀愁が極限まで引き出されています。",
+        "point": "淡々と脈打つ低音の鼓動の上で、オーボエが静かに天を見上げて歌う美しいカンタービレ。"
+    },
+    {
+        "id": "bach-french-suite-5-gigue",
+        "title": "フランス組曲 第5番 ト長調 - ジーグ",
+        "origTitle": "French Suite No. 5 in G major, BWV 816 - VII. Gigue",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1722年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/f/f7/BWV.816_Gigue-French_Suites_No.5_Bach%2C_Player_JMC%2C_Han.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "飛び跳ねるような喜び！バッハ屈指のハッピーな舞曲",
+        "trivia": "ピアノ発表会やアンコールピースの定番として大人気のリズミカルな名曲。",
+        "history": "愛妻アンナ・マグダレーナのために贈られた『フランス組曲』の最後を飾る、躍動感あふれるイギリス・アイルランド起源の舞曲です。",
+        "point": "左手と右手で主題を追いかけっこするフーガのような対位法の楽しさと、快活なリズム。"
+    },
+    {
+        "id": "bach-french-suite-6-sarabande",
+        "title": "フランス組曲 第6番 ホ長調 - サラバンド",
+        "origTitle": "French Suite No. 6 in E major, BWV 817 - III. Sarabande",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1722年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/c0/Bach-french-suite-6-sarabande-BWV_817.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "静かに心を満たす深い安らぎ… 祈りのサラバンド",
+        "trivia": "夜の読書や思索、心を落ち着かせたい作業時間に寄り添う穏やかな名曲。",
+        "history": "荘重な3拍子のスペイン起源の舞曲サラバンド。バッハはこれを深遠な瞑想音楽へと昇華させました。",
+        "point": "2拍目に重心を置く独特の呼吸と、温かく語りかけてくる和声の移ろい。"
+    },
+    {
+        "id": "bach-goldberg-var-1",
+        "title": "ゴールドベルク変奏曲: 第1変奏",
+        "origTitle": "Goldberg Variations, BWV 988 - Variatio 1 a 1 Clav.",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1741年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/6/6c/Kimiko_Ishizaka_-_J.S._Bach-_-Open-_Goldberg_Variations%2C_BWV_988_%28Piano%29_-_02_Variatio_1_a_1_Clav.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "静けさのアリアから一転、華やかに旅立ちを告げる第1変奏",
+        "trivia": "映画やCMでゴールドベルク変奏曲といえばアリアに続いて必ず流れる有名曲。",
+        "history": "静謐なアリアの後に置かれた躍動的な2声の舞曲。右手と左手がリズミカルに交差し合いながら進みます。",
+        "point": "弾むようなステップのリズムと、これから始まる30の宇宙への期待感を高める高揚感。"
+    },
+    {
+        "id": "bach-goldberg-var-7",
+        "title": "ゴールドベルク変奏曲: 第7変奏 (シチリアーナ)",
+        "origTitle": "Goldberg Variations, BWV 988 - Variatio 7 a 1 ovvero 2 Clav.",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1741年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/e3/Kimiko_Ishizaka_-_J.S._Bach-_-Open-_Goldberg_Variations%2C_BWV_988_%28Piano%29_-_08_Variatio_7_a_1_ovvero_2_Clav.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "南イタリアの風を感じさせる、優美なシチリアーナ舞曲",
+        "trivia": "バッハ自身の自筆譜に「ジーグのテンポで」と書き加えられていた愛らしい変奏。",
+        "history": "付点リズムが心地よく揺れるシチリアの伝統舞曲。優雅さと親しみやすさを兼ね備えています。",
+        "point": "ゆらゆらと揺れるボートのような優しいリズムと、繊細な装飾音のきらめき。"
+    },
+    {
+        "id": "bach-goldberg-var-14",
+        "title": "ゴールドベルク変奏曲: 第14変奏 (華麗なるパッセージ)",
+        "origTitle": "Goldberg Variations, BWV 988 - Variatio 14 a 2 Clav.",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1741年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/1/1d/Kimiko_Ishizaka_-_J.S._Bach-_-Open-_Goldberg_Variations%2C_BWV_988_%28Piano%29_-_15_Variatio_14_a_2_Clav.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "両手がアクロバティックに交差する、超絶技巧の光",
+        "trivia": "ピアニストの妙技が存分に味わえる、スリリングで華麗な変奏曲。",
+        "history": "2段鍵盤チェンバロの特性を活かし、両手を交差させながら高速でトリルと音階を紡ぎ出します。",
+        "point": "花火のように散りばめられるきらびやかなトリルと、流れるようなアルペジオの爽快感。"
+    },
+    {
+        "id": "bach-goldberg-var-25",
+        "title": "ゴールドベルク変奏曲: 第25変奏 (至高のアダージョ)",
+        "origTitle": "Goldberg Variations, BWV 988 - Variatio 25 a 2 Clav.",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1741年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/26/Kimiko_Ishizaka_-_J.S._Bach-_-Open-_Goldberg_Variations%2C_BWV_988_%28Piano%29_-_26_Variatio_25_a_2_Clav.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「黒真珠」と讃えられる、全編で最も深く切ない変奏",
+        "trivia": "名ピアニスト・ワンダ・ランドフスカが「黒真珠」と呼んだ、クラシック史上最も深遠な緩徐楽章。",
+        "history": "全30変奏中わずか3つしかない短調変奏の最後の曲。半音階を多用した痛切なまでの悲哀が歌われます。",
+        "point": "一歩一歩踏みしめるような悲しみの低音と、ため息を漏らすかのような切実なメロディ。"
+    },
+    {
+        "id": "bach-goldberg-aria-dacapo",
+        "title": "ゴールドベルク変奏曲: アリア・ダ・カーポ",
+        "origTitle": "Goldberg Variations, BWV 988 - Aria da Capo",
+        "composer": "J.S. バッハ",
+        "composerEn": "Johann Sebastian Bach",
+        "eras": [
+            "baroque",
+            "ambient"
+        ],
+        "eraLabel": "BAROQUE",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1741年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/ee/Kimiko_Ishizaka_-_32_-_Aria_da_Capo_Fine.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "壮大な旅を終え、再び訪れる原点… 永遠の安らぎ",
+        "trivia": "30の変奏をすべて巡った後に全く同じアリアが再び現れる、映画の感動的ラストのような構造。",
+        "history": "長い人生の旅路を終えて故郷に戻ってきたかのような深い感慨をもたらす、音楽史上の奇跡的なエンディングです。",
+        "point": "冒頭と同じ音符でありながら、30の旅を経たことで全く異なる深みと静寂を感じさせます。"
+    },
+    {
+        "id": "mozart-symphony-25-2",
+        "title": "交響曲第25番 ト短調 第2楽章 アンダンテ",
+        "origTitle": "Symphony No. 25 in G minor, K. 183 - II. Andante",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1773年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/0/0c/W._A._Mozart_-_Symphony_n._25_-_II._Andante.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "映画『アマデウス』オープニング曲の、穏やかな対照",
+        "trivia": "激しい第1楽章に続いて演奏される、木管楽器の素朴な温もりが染みる楽章。",
+        "history": "17歳のモーツァルトが「疾風怒濤（シュトゥルム・ウント・ドラング）」の時代に書いた奇跡のト短調交響曲です。",
+        "point": "ファゴットとバイオリンが優しくささやき合う、心安らぐ会話のようなアンサンブル。"
+    },
+    {
+        "id": "mozart-jupiter-2",
+        "title": "交響曲第41番『ジュピター』第2楽章 アンダンテ",
+        "origTitle": "Symphony No. 41 in C major 'Jupiter', K. 551 - II. Andante cantabile",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1788年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/d4/Wolfgang_Amadeus_Mozart_-_Symphony_No._41_2nd_Movement_%28Jupiter%29%2C_K.551.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "モーツァルト最後の交響曲に宿る、気品と哀愁の歌",
+        "trivia": "最高傑作『三大交響曲』を締めくくるジュピターの、最も情感豊かな緩徐楽章。",
+        "history": "弱音器をつけた弦楽器が夢見るように歌い出し、途中から切迫した感情の陰影が織り込まれます。",
+        "point": "カンタービレ（歌うように）の名にふさわしい、どこまでも優雅で切ないメロディのうねり。"
+    },
+    {
+        "id": "mozart-k330-2",
+        "title": "ピアノソナタ第10番 ハ長調 K.330 第2楽章",
+        "origTitle": "Piano Sonata No. 10 in C major, K. 330 - II. Andante cantabile",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1783年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/df/Wolfgang_Amadeus_Mozart_-_Klaviersonate_C-Dur_KV_330_%28300h%29_-_2-_Andante_cantabile_-_Schmidt_2000.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "巨匠ホロヴィッツが晩年に最も愛奏した至福のアンダンテ",
+        "trivia": "ピアノ界の巨匠ホロヴィッツがモスクワ里帰りコンサートの冒頭で演奏し世界を涙させた名曲。",
+        "history": "モーツァルトのピアノソナタの中でもひときわ純真で無垢な美しさを持つ名作です。",
+        "point": "そっと語りかけるような主題と、中間部でわずかに見せる短調の翳りの儚い美しさ。"
+    },
+    {
+        "id": "mozart-k332-2",
+        "title": "ピアノソナタ第12番 ヘ長調 K.332 第2楽章",
+        "origTitle": "Piano Sonata No. 12 in F major, K. 332 - II. Adagio",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1783年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Mozart_-_Piano_Sonata_No._12_in_F_Major%2C_K.332_-_II._Adagio.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "装飾音の宝石箱！モーツァルトの華麗な歌心",
+        "trivia": "ピアノ学習者がソナタアルバムで必ず出会う、優雅なアダージョの代表作。",
+        "history": "初版譜にはモーツァルト自身による手の込んだ美しい装飾音がびっしり書き込まれていました。",
+        "point": "イタリア・オペラのアリアのように、感情をたっぷり込めて装飾音を歌い上げる右手の技巧。"
+    },
+    {
+        "id": "mozart-figaro-overture",
+        "title": "歌劇『フィガロの結婚』序曲",
+        "origTitle": "The Marriage of Figaro, K. 492 - Overture",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1786年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/e2/Mozart%2C_The_Marriage_of_Figaro_%28overture%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "幕開けからエンジン全開！歓喜とスピードの最高傑作",
+        "trivia": "コンサートの幕開けや、元気を出したい朝のBGMとして世界中で親しまれる名序曲。",
+        "history": "モーツァルトが初演の直前、数日間で一気に書き上げたと伝えられる天才のひらめきの結晶です。",
+        "point": "ひそひそ話のような冒頭の早口パッセージから、突如大爆発するオーケストラの祝祭感。"
+    },
+    {
+        "id": "mozart-requiem-lacrimosa",
+        "title": "レクイエムより『ラクリモーサ (涙の日)』",
+        "origTitle": "Requiem in D minor, K. 626 - Lacrimosa (Piano)",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1791年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Mozart%2C_Requiem_in_D_minor%2C_%27Lacrimosa%27_%E2%80%93_piano_arrangement.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "モーツァルト絶筆の8小節… 人類の涙を誘う至高のレクイエム",
+        "trivia": "映画やドラマの悲劇的なシーンで必ず使われる、クラシック史上で最もドラマチックな祈り。",
+        "history": "死の床にあったモーツァルトがこの曲の第8小節まで書いたところで息を引き取ったと伝えられています。",
+        "point": "すすり泣くようなバイオリンの装飾と、ゆっくりと天へと昇っていく哀愁の旋律。"
+    },
+    {
+        "id": "mozart-flute-quartet-adagio",
+        "title": "フルート四重奏曲第1番 第2楽章 アダージョ",
+        "origTitle": "Flute Quartet No. 1 in D major, K. 285 - II. Adagio",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 フルートと弦楽",
+        "year": "1777年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/2a/Wolfgang_Amadeus_Mozart_-_Flute_Quartet_No._1_in_D_Major_-_2._Adagio.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "弦のピチカートに乗せて… フルートが歌う夜の静けさ",
+        "trivia": "わずか35小節の短い楽章でありながら、モーツァルトの室内楽で最も美しいと称される名曲。",
+        "history": "弦楽器3人が全編ピチカート（弦を指ではじく奏法）で伴奏し、フルートが独り切々と歌い上げます。",
+        "point": "夜露が滴るようなピチカートの伴奏と、甘美で憂いを帯びたフルートの歌声。"
+    },
+    {
+        "id": "mozart-piano-wind-larghetto",
+        "title": "ピアノと管楽のための五重奏曲 第2楽章",
+        "origTitle": "Quintet for Piano and Winds, K. 452 - II. Larghetto",
+        "composer": "W.A. モーツァルト",
+        "composerEn": "Wolfgang Amadeus Mozart",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 ピアノと木管",
+        "year": "1784年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/5/5e/Mozart_-_Quintet_for_Piano_and_Winds_-_2._Larghetto.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「生涯で最高の自信作」モーツァルト自身が父に誇った名曲",
+        "trivia": "オーボエ、クラリネット、ホルン、ファゴットとピアノが織りなす極上のアンサンブル。",
+        "history": "作曲後、モーツァルトが父レオポルトへの手紙で「これまでに書いた中で最高の作品」と誇らしげに報告しました。",
+        "point": "ピアノの透明な響きと4本の管楽器の豊かな色彩が溶け合う、温かく幸福な時間。"
+    },
+    {
+        "id": "beethoven-symphony-7-2",
+        "title": "交響曲第7番 イ長調 第2楽章 アレグレット",
+        "origTitle": "Symphony No. 7 in A major, Op. 92 - II. Allegretto",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1812年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/0/0c/JOHN_MICHEL_CELLO-BEETHOVEN_SYMPHONY_7_Allegretto.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "映画『英国王のスピーチ』でも使われた、荘厳な運命の行進",
+        "trivia": "映画『英国王のスピーチ』の演説シーンやドラマ『のだめカンタービレ』で有名な名楽章。",
+        "history": "初演時、あまりの感動に聴衆が熱狂し、この第2楽章だけがアンコール演奏されました。",
+        "point": "低音のビオラとチェロから静かに始まり、次々と楽器が重なって壮大なうねりとなる感動。"
+    },
+    {
+        "id": "beethoven-minuet-in-g",
+        "title": "メヌエット ト長調 (WoO 10, No. 2)",
+        "origTitle": "Minuet in G major, WoO 10, No. 2",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1795年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/db/Minuet_in_G_%28Beethoven%29%2C_piano.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "誰もが子どもの頃に聴いた、親しみやすさ満点のメヌエット",
+        "trivia": "バイオリン教室のレッスン曲や時計のオルゴールで定番の、世界で最も有名なメヌエット。",
+        "history": "ウィーンの舞踏会のために書かれたダンス音楽。ベートーヴェンの親しみやすく優しい素顔が楽しめます。",
+        "point": "親指と小指のオクターブの響きと、誰もが口ずさめる朗らかなメロディ。"
+    },
+    {
+        "id": "beethoven-romance-f",
+        "title": "ロマンス第2番 ヘ長調 作品50",
+        "origTitle": "Romance for Violin and Orchestra No. 2 in F major, Op. 50",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "strings",
+        "instLabel": "🎻 バイオリンと管弦楽",
+        "year": "1798年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/f/fc/L._v._Beethoven_-_Romance_op._50_n._2.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ベートーヴェンが遺した、甘美で高貴な愛のロマンス",
+        "trivia": "バイオリン名曲集のハイライトとして愛され続ける、ロマンチックな協奏的小品。",
+        "history": "情熱的なソナタとは対照的に、穏やかで歌心に満ちたベートーヴェン初期の名作です。",
+        "point": "独奏バイオリンが優美に主題を奏で出し、オーケストラが温かくそれを受け止める幸福感。"
+    },
+    {
+        "id": "beethoven-waldstein-1",
+        "title": "ピアノソナタ第21番『ワルトシュタイン』第1楽章",
+        "origTitle": "Piano Sonata No. 21 in C major 'Waldstein', Op. 53 - I. Allegro con brio",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1804年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/f/f6/Klaviersonate_Nr._21_C-Dur_op._53_Waldstein_-_I._Allegro_con_brio.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "朝の光が大地を満たす！中期ベートーヴェンの輝かしい夜明け",
+        "trivia": "恩人ワルトシュタイン伯爵に捧げられた、ピアニストの登竜門的超大作。",
+        "history": "新しく手に入れたエラール社製ピアノの広い音域と表現力にインスピレーションを得て作曲されました。",
+        "point": "低音で刻まれるリズミカルな鼓動と、突如として高音へきらめく光のシャワーの爽快感。"
+    },
+    {
+        "id": "beethoven-piano-concerto-3-largo",
+        "title": "ピアノ協奏曲第3番 ハ短調 第2楽章 ラルゴ",
+        "origTitle": "Piano Concerto No. 3 in C minor, Op. 37 - II. Largo",
+        "composer": "L.v. ベートーヴェン",
+        "composerEn": "Ludwig van Beethoven",
+        "eras": [
+            "classical",
+            "ambient"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1800年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/1/10/Beethoven_piano_concerto_3_-_2nd_mvt.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "深海に光が射し込むような… 静寂の祈りのラルゴ",
+        "trivia": "クラシック通が「ベートーヴェンで最も瞑想的」と絶賛する、息を呑む静けさの楽章。",
+        "history": "情熱的なハ短調の第1楽章から、遠く離れたホ長調へと転調して現れる神秘的な世界です。",
+        "point": "ペダルを長く踏み込んだピアノの残響と、フルートとファゴットの静かな対話。"
+    },
+    {
+        "id": "haydn-musical-clock",
+        "title": "音楽時計のための小品『うずら』",
+        "origTitle": "Pieces for Mechanical Clock, Hob. XIX - The Quail",
+        "composer": "J. ハイドン",
+        "composerEn": "Joseph Haydn",
+        "eras": [
+            "classical"
+        ],
+        "eraLabel": "CLASSICAL",
+        "inst": "plucked",
+        "instLabel": "🪕 オルゴール・古楽器",
+        "year": "1792年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Musical_clock_haydn_wachtelschlag.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "宮廷のからくり時計のためにハイドンが書いた愛らしい曲",
+        "trivia": "時計の針が進むとともに鳥がさえずる、ユーモラスで心温まる歴史的音源。",
+        "history": "エステルハージ侯爵家の司書ニーメツ神父が製作した精巧な自動オルガン（音楽時計）のために作曲しました。",
+        "point": "古時計ならではの素朴で懐かしい響きと、小鳥の鳴き声を真似た軽快なフレーズ。"
+    },
+    {
+        "id": "chopin-minute-waltz",
+        "title": "子犬のワルツ (作品64の1)",
+        "origTitle": "Minute Waltz in D-flat major, Op. 64, No. 1",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1847年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/c4/Muriel-Nguyen-Xuan-Chopin-valse-opus64-1.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "自分の尻尾を追いかけてグルグル回る子犬のダンス！",
+        "trivia": "ショパンのピアノ曲の中で最も親しまれている、愛らしさ満点の小品。",
+        "history": "恋人ジョルジュ・サンドの愛犬が自分の尻尾を追いかけてくるくる回る様子を見て作曲したと言われています。",
+        "point": "目にもとまらぬ高速トリルと、途中で一瞬だけ甘く歌う中間部のお茶目な対比。"
+    },
+    {
+        "id": "chopin-grande-valse",
+        "title": "華麗なる大円舞曲 (作品18)",
+        "origTitle": "Grande valse brillante in E-flat major, Op. 18",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1833年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/7/7f/Rachmaninoff_-_Chopin_Waltz_E_flat_major_-_Steinway_grand_piano.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "パリの舞踏会へようこそ！ショパン最初の華麗なワルツ",
+        "trivia": "バレエ『レ・シルフィード』や数々のフィギュアスケートで使われる定番ワルツ。",
+        "history": "ショパンが生前最初に出版したワルツ。ラフマニノフら歴代の巨匠ピアニストが愛奏してきました。",
+        "point": "ファンファーレのような導入から、次々に現れる華やかで洗練されたダンスの旋律。"
+    },
+    {
+        "id": "chopin-tristesse",
+        "title": "練習曲 作品10の3『別れの曲』",
+        "origTitle": "Étude Op. 10, No. 3 in E major 'Tristesse'",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1832年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Fryderyk_Chopin_-_%C3%89tude_Op._10_n._3.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「これほど美しい旋律は生涯書けたことがない」ショパンの告白",
+        "trivia": "日本ではドラマや映画で『別れの曲』として親しまれる、ピアノ史上の至高のメロディ。",
+        "history": "ショパン自身が生徒の前で「これほど美しいメロディを見出したことはなかった」と両手を天にかざした逸話が残ります。",
+        "point": "涙をこらえるかのような優しい主旋律と、中間部で突如として荒れ狂う激情のうねり。"
+    },
+    {
+        "id": "chopin-black-keys",
+        "title": "練習曲 作品10の5『黒鍵のエチュード』",
+        "origTitle": "Étude Op. 10, No. 5 in G-flat major 'Black Keys'",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1830年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/95/Chopin_Black-keys_Flat_G_Etude_%28Exercise%29%2C_player_JMC%2C_Han.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "右手が黒鍵しか弾かない！きらめく超絶技巧の奇術",
+        "trivia": "ピアノ上級者の華麗な見せ場として大人気の、爽快感抜群の練習曲。",
+        "history": "右手の旋律が1音を除いてすべてピアノの「黒鍵」だけで演奏されるという驚異的なアイデアで書かれています。",
+        "point": "コロコロと転がるガラス玉のような右手の軽快さと、左手の力強いスタッカート。"
+    },
+    {
+        "id": "chopin-aeolian-harp",
+        "title": "練習曲 作品25の1『エオリアンハープ』",
+        "origTitle": "Étude Op. 25, No. 1 in A-flat major 'Aeolian Harp'",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1836年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/bf/Frederic_Chopin_-_etude_no._1_in_a_flat_major%2C_op._25.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "風が竪琴を鳴らすように… 雲海のように広がるアルペジオ",
+        "trivia": "シューマンが「風の竪琴（エオリアンハープ）のようだ」と絶賛したことから名付けられました。",
+        "history": "両手で絶え間なく波打つ分散和音の中から、小指のメロディが浮かび上がってくる幻想的な名作です。",
+        "point": "ペダルによって溶け合う和音の響きと、天から降ってくるかのような優しい旋律。"
+    },
+    {
+        "id": "chopin-military-polonaise",
+        "title": "軍隊ポロネーズ 作品40の1",
+        "origTitle": "Polonaise in A major, Op. 40, No. 1 'Military'",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1838年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/a/ac/Chopin-polonaise-in-a-military.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "祖国の栄光を讃える！力強いドラムロールと凱歌",
+        "trivia": "第二次世界大戦中、ワルシャワ放送が祖国の誇りを鼓舞するために連日放送した歴史的名曲。",
+        "history": "ショパン自身が「もしポーランドの勇気ある騎士が生きていたら、まさにこのように響くだろう」と誇った名ポロネーズです。",
+        "point": "太鼓のリズムを思わせる重厚な和音の連打と、胸のすくような堂々たる行進。"
+    },
+    {
+        "id": "chopin-nocturne-c-sharp-minor",
+        "title": "ノクターン 嬰ハ短調 (遺作)",
+        "origTitle": "Nocturne in C-sharp minor, B. 49, Op. posth.",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1830年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/1/12/Chopin%2C_Nocturne_in_C-sharp_minor%2C_Op._Posth.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "映画『戦場のピアニスト』の魂を救った奇跡のノクターン",
+        "trivia": "映画『戦場のピアニスト』で廃墟の中で主人公が弾く、涙なしには聴けない至高の夜想曲。",
+        "history": "姉ルドヴィカのために書かれた初期の小品。自身のピアノ協奏曲のフレーズが随所に引用されています。",
+        "point": "静かにためらいがちに始まる導入から、哀愁のメロディが胸を締め付けるように歌い出されます。"
+    },
+    {
+        "id": "chopin-impromptu-1",
+        "title": "即興曲第1番 変イ長調 作品29",
+        "origTitle": "Impromptu No. 1 in A-flat major, Op. 29",
+        "composer": "F. ショパン",
+        "composerEn": "Frédéric Chopin",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1837年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Impromptu_no._1_-_Op._29.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "泉から湧き出る清水のように… 爽快でエレガントな即興曲",
+        "trivia": "『幻想即興曲』に隠れた名作。軽やかで上品なサロンの空気が満ち溢れています。",
+        "history": "3連符の波が滑らかに転がる第1部と、重厚な低音で情熱的に歌う中間部の対比が見事です。",
+        "point": "指先が軽やかに鍵盤を駆け抜ける心地よい流麗さと、ショパンならではの気品。"
+    },
+    {
+        "id": "liszt-la-campanella",
+        "title": "パガニーニ大練習曲 第3番『ラ・カンパネラ』",
+        "origTitle": "Grandes Études de Paganini, S. 141 - No. 3 'La Campanella'",
+        "composer": "F. リスト",
+        "composerEn": "Franz Liszt",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1851年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Liszt-La_Campanella-Greiss.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "超絶技巧ピアノの最高峰！夜空に響く銀の鐘の音",
+        "trivia": "フジコ・ヘミングの演奏でも社会現象となった、全人類の心を掴む鐘のメロディ。",
+        "history": "悪魔のバイオリニスト・パガニーニの超絶演奏に衝撃を受けたリストが、「ピアノのパガニーニになる！」と誓って完成させました。",
+        "point": "右手がオクターブを超えて猛烈にジャンプしながら鳴り響かせる、澄み切った鐘の音の連打。"
+    },
+    {
+        "id": "liszt-un-sospiro",
+        "title": "3つの演奏会用練習曲より『ため息 (Un Sospiro)』",
+        "origTitle": "3 Études de concert, S. 144 - No. 3 'Un Sospiro'",
+        "composer": "F. リスト",
+        "composerEn": "Franz Liszt",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1848年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/3/32/Franz_Liszt_-_Un_Sospiro_Etude%2C_Db_Major.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "両手が交差して歌う、切なく美しい「ため息」のアルペジオ",
+        "trivia": "映画やCMで愛される、リストの作品の中で最もロマンチックで詩的な名曲。",
+        "history": "両手のアルペジオの波をかき分けながら、親指が交互に切ない主旋律を歌い上げる奇跡の技巧です。",
+        "point": "ピアノ全体がハープのように豊かに鳴り響く中、そっとため息をつくように語るメロディ。"
+    },
+    {
+        "id": "liszt-hungarian-rhapsody-10",
+        "title": "ハンガリー狂詩曲 第10番 前奏曲",
+        "origTitle": "Hungarian Rhapsody No. 10 in E major, S. 244/10",
+        "composer": "F. リスト",
+        "composerEn": "Franz Liszt",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1847年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/6/60/Liszt_Hungarian_Rhapsody_No_10.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ジプシーのツィンバロンを模したグリッサンドの嵐！",
+        "trivia": "ピアニストの手元が魔法のように動く、リストの故郷ハンガリーへの熱い賛歌。",
+        "history": "ハンガリーの伝統打弦楽器ツィンバロンの音色をピアノで再現するため、数多くの華麗な装飾が用いられています。",
+        "point": "指の背で鍵盤を一気に滑らせるグリッサンドと、哀愁から熱狂へと移り変わるグルーヴ。"
+    },
+    {
+        "id": "liszt-piano-concerto-1-adagio",
+        "title": "ピアノ協奏曲第1番 第2楽章 クアジ・アダージョ",
+        "origTitle": "Piano Concerto No. 1 in E-flat major - II. Quasi adagio",
+        "composer": "F. リスト",
+        "composerEn": "Franz Liszt",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノと管弦楽",
+        "year": "1849年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/8/87/Franz_Liszt_-_1st_piano_concerto%2C_2nd_movement.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "嵐の前の静けさ… 弦楽器とピアノの夜想曲風の対話",
+        "trivia": "劇的な第1楽章から一転し、息をのむような美しい夜の瞑想へと誘う名楽章。",
+        "history": "全4楽章が切れ目なく演奏される革新的な協奏曲の、最も抒情的なオアシスです。",
+        "point": "ミュートをつけた弦楽器のささやきに、ピアノが夢見るように応える詩情あふれる瞬間。"
+    },
+    {
+        "id": "liszt-au-bord-dune-source",
+        "title": "巡礼の年 第1年より『泉のほとりで』",
+        "origTitle": "Années de pèlerinage I, S. 160 - No. 4 'Au bord d'une source'",
+        "composer": "F. リスト",
+        "composerEn": "Franz Liszt",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1855年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/4/40/Liszt-_au_bord_d_une.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「ささやく冷泉の中で、若き日の戯れが始まる」",
+        "trivia": "シラーの詩を掲げた、水を描いたピアノ音楽の歴史的傑作。",
+        "history": "スイスの大自然を旅したリストが、アルプスの湧き水が澄み切って流れ出す様子を音楽にしました。",
+        "point": "両手が細かく交差しながら奏でる、水晶のように透き通った水のせせらぎ。"
+    },
+    {
+        "id": "schubert-impromptu-90-3",
+        "title": "即興曲 変ト長調 作品90の3 (D.899)",
+        "origTitle": "4 Impromptus, Op. 90 - No. 3 in G-flat major, Andante",
+        "composer": "F. シューベルト",
+        "composerEn": "Franz Schubert",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1827年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/d4/Schubert_Gb_Impromptu_Mark_Gasser_%28Live%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "天国のような静けさ… シューベルトの祈りのアヴェ・マリア",
+        "trivia": "映画『ガタカ』や数々の名作映画で静かな感動を呼ぶピアノの名曲。",
+        "history": "シューベルト晩年の澄み切った心境が反映された、6連符のアルペジオがどこまでも続く名作です。",
+        "point": "静かにさざ波を立てる伴奏に乗せて、歌の王様シューベルトならではの美しい旋律が胸を打ちます。"
+    },
+    {
+        "id": "schubert-moments-musicaux-3",
+        "title": "楽興の時 第3番 ヘ短調 (D.780)",
+        "origTitle": "Moments musicaux, Op. 94, D. 780 - No. 3 in F minor",
+        "composer": "F. シューベルト",
+        "composerEn": "Franz Schubert",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1823年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/28/Schubert%3B_Moments_musicaux%2C_no._3_In_F_Minor.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "愛らしいロシア風のステップ！誰もが知る親しみやすい小品",
+        "trivia": "テレビのミニ番組やCM、時計の時報で親しまれるシューベルトの代表作。",
+        "history": "「音楽の瞬間」を意味する曲集の中の1曲。出版当初は『ロシア風の歌』として単独で大ヒットしました。",
+        "point": "トコトコと歩くような愛らしいスタッカートのリズムと、哀愁を含んだ親しみやすいメロディ。"
+    },
+    {
+        "id": "schubert-unfinished-1",
+        "title": "交響曲第8番『未完成』第1楽章",
+        "origTitle": "Symphony No. 8 in B minor 'Unfinished', D. 759 - I. Allegro moderato",
+        "composer": "F. シューベルト",
+        "composerEn": "Franz Schubert",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1822年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/96/Schubert_Symphony_No._8_%27Unfinished%27_-_1-_Allegro_moderato_in_B_minor.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "なぜ第2楽章までしかないのか？音楽史最大の謎と美しさ",
+        "trivia": "『運命』『新世界より』と並ぶ世界三大交響曲の筆頭。未完成でありながら完全無欠の傑作。",
+        "history": "第2楽章までしか書かれず、シューベルトの死後40年以上も友人の家の戸棚に眠っていた奇跡の名作です。",
+        "point": "地底から湧き上がるような低弦の不気味な動機から、オーボエとクラリネットが歌う哀愁の第1主題。"
+    },
+    {
+        "id": "brahms-hungarian-5",
+        "title": "ハンガリー舞曲 第5番 嬰ヘ短調",
+        "origTitle": "Hungarian Dance No. 5 in F-sharp minor (Piano)",
+        "composer": "J. ブラームス",
+        "composerEn": "Johannes Brahms",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ連弾・独奏",
+        "year": "1869年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/ea/Hungarian_Dances_-_No._5_in_F_Sharp_Minor_%28Collections_in_piano%29_JMC%2CHan.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「チャッ・チャッ・チャラララ！」全人類が知る情熱のステップ",
+        "trivia": "チャップリンの映画『独裁者』の床屋シーンをはじめ、世界中でパロディされる超名曲。",
+        "history": "ブラームスの全作品の中で最も有名で最も商業的に成功した、ジプシー音楽の傑作です。",
+        "point": "突然立ち止まったかと思えば急激に猛ダッシュする、緩急自在の情熱的なグルーヴ。"
+    },
+    {
+        "id": "brahms-waltz-39-15",
+        "title": "ワルツ集 作品39より 第15番 変イ長調",
+        "origTitle": "16 Waltzes, Op. 39 - No. 15 in A-flat major",
+        "composer": "J. ブラームス",
+        "composerEn": "Johannes Brahms",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1865年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/7/75/Brahms-waltz01.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "心温まる優しいワルツ… ブラームスの最も親しみやすい小品",
+        "trivia": "オルゴールや卒業式、穏やかなカフェの昼下がりに流れる定番のワルツ。",
+        "history": "親友の名音楽評論家エドゥアルト・ハンスリックに捧げられた16のワルツ集の中で、最も広く愛されている名品です。",
+        "point": "ゆったりと揺れる包容力のあるリズムと、懐かしい故郷を思い出すような優しい旋律。"
+    },
+    {
+        "id": "tchaikovsky-waltz-of-the-flowers",
+        "title": "『くるみ割り人形』より「花のワルツ」",
+        "origTitle": "The Nutcracker, Op. 71 - Waltz of the Flowers",
+        "composer": "P.I. チャイコフスキー",
+        "composerEn": "Pyotr Ilyich Tchaikovsky",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 管楽・管弦楽",
+        "year": "1892年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/b5/Waltz_of_the_Flowers_-_Concert_Band_-_United_States_Air_Force_Band.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ハープのカデンツァから咲き誇る、お菓子の国の花の輪舞曲",
+        "trivia": "ディズニーのアニメ映画『ファンタジア』でも有名な、華麗なクラシック・ワルツの頂点。",
+        "history": "クリスマスイブの夜、お菓子の国の精たちが一斉に舞い踊るクライマックスを華麗に彩ります。",
+        "point": "ハープのきらびやかなソロから、ホルンが堂々と主題を吹き鳴らし全合奏へと広がる圧倒的な祝祭感。"
+    },
+    {
+        "id": "tchaikovsky-piano-concerto-1-cadenza",
+        "title": "ピアノ協奏曲第1番 第1楽章 冒頭カデンツァ",
+        "origTitle": "Piano Concerto No. 1 in B-flat minor, Op. 23 - Cadenza",
+        "composer": "P.I. チャイコフスキー",
+        "composerEn": "Pyotr Ilyich Tchaikovsky",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1875年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/9f/Tchaikovsky_-_Piano_Concerto_No._1_%28first_movement_cadenza%29.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ホルンのファンファーレに続く、怒涛のピアノの重低音！",
+        "trivia": "チャイコフスキー国際コンクールやオリンピックの表彰式で使われる、ロシア音楽の代名詞。",
+        "history": "当初、友人ニコライ・ルビンシテインに「演奏不能」と酷評され激怒したチャイコフスキーが、初演を敢行し歴史的大成功を収めました。",
+        "point": "鍵盤を叩きつけるような圧倒的なフォルテシモの和音連打と、雄大なメロディの広がり。"
+    },
+    {
+        "id": "dvorak-humoresque-7",
+        "title": "ユーモレスク 第7番 変ト長調 作品101",
+        "origTitle": "Humoresques, Op. 101 - No. 7 in G-flat major, Poco lento e grazioso",
+        "composer": "A. ドヴォルザーク",
+        "composerEn": "Antonín Dvořák",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 バイオリンとピアノ",
+        "year": "1894年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/7/7b/Dvo%C5%99%C3%A1k_-_Humoresque_Op._101_No._7.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "のどかで心温まる名旋律… バイオリン編曲でも大ヒット",
+        "trivia": "『ユーモレスク』といえばこの曲！駅の発車メロディやCMでも親しまれる癒やしの名品。",
+        "history": "アメリカ滞在を終えて故郷ボヘミアの避暑地に戻った幸福な夏に作曲されました。",
+        "point": "スキップするような弾むリズムと、人懐っこく温かいメロディの優しさ。"
+    },
+    {
+        "id": "debussy-doctor-gradus",
+        "title": "子供の領分より『グラドゥス・アド・パルナッスム博士』",
+        "origTitle": "Children's Corner - I. Doctor Gradus ad Parnassum",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1908年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Impressionist_Data_for_technique_analysis_-_Doctor_Gradus_ad_Parnassum.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "退屈な指の練習曲が、いつの間にか楽しい夢の冒険へ！",
+        "trivia": "クレメンティの堅苦しい練習曲をパロディにした、愛娘シュシュへのユーモアあふれる贈り物。",
+        "history": "真面目に指の練習をしていた子どもが、次第に退屈して窓の外を眺め、空想の世界へと飛び出していく様子を描いています。",
+        "point": "無機質なアルペジオが、次第に表情豊かに波打ち、輝かしいクライマックスへと駆け抜ける楽しさ。"
+    },
+    {
+        "id": "debussy-beau-soir",
+        "title": "美しき夕暮れ (Beau Soir)",
+        "origTitle": "Beau Soir, L. 6",
+        "composer": "C. ドビュッシー",
+        "composerEn": "Claude Debussy",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "strings",
+        "instLabel": "🎻 バリトンとピアノ",
+        "year": "1880年頃",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/7/75/Debussy%3B_Beau_Soir%2CGiuseppe_De_Luca%2C_Victor_64934.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "川面に沈む夕陽と、人生の黄昏を歌う初期の珠玉の歌曲",
+        "trivia": "ハイフェッツのバイオリン編曲など、器楽曲としても世界中で愛されるドビュッシー屈指の美メロディ。",
+        "history": "10代後半の学生時代に詩人ブルジェの詩に曲をつけた、青春のメランコリーがにじむ名品です。",
+        "point": "川のせせらぎのような穏やかな3連符に乗せて歌われる、儚くも美しい夕暮れの情景。"
+    },
+    {
+        "id": "ravel-bolero",
+        "title": "ボレロ (スネアと管弦楽のための)",
+        "origTitle": "Boléro",
+        "composer": "M. ラヴェル",
+        "composerEn": "Maurice Ravel",
+        "eras": [
+            "modern"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1928年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/0/0c/Bol%C3%A9ro_%E2%80%93_Maurice_Ravel.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "たった一つのリズムと二つの旋律が創る、15分間の大爆発",
+        "trivia": "映画やフィギュアスケート、CMで必ず使われる、20世紀管弦楽の最大の奇跡。",
+        "history": "同じリズムを169回刻み続ける小太鼓の上で、楽器が一人ずつ交代しながら音量を無限に増大させていきます。",
+        "point": "極小のピアニッシモから、オーケストラ全員が鳴り響く最後の大音響フォルテシモへの圧倒的カタルシス。"
+    },
+    {
+        "id": "ravel-ondine",
+        "title": "夜のガスパールより『オンディーヌ (水の精)』",
+        "origTitle": "Gaspard de la nuit - I. Ondine",
+        "composer": "M. ラヴェル",
+        "composerEn": "Maurice Ravel",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "IMPRESSIONIST",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1908年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/8/8e/Maurice_Ravel_Ondine.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "水滴が宝石となって舞う… ピアノ超絶技巧の極致",
+        "trivia": "ピアノ史上最も演奏が難しい曲の一つとして名高い、神秘的な水の精の物語。",
+        "history": "詩人ベルトランの幻想的な詩集に基づき、湖の底の宮殿へと人間を誘う水の精オンディーヌの妖艶な誘惑を描きました。",
+        "point": "右手の高速アルペジオがさざ波のように背景を覆い尽くし、その奥から妖しく浮かび上がる旋律美。"
+    },
+    {
+        "id": "faure-berceuse-dolly",
+        "title": "ドリー組曲より『子守歌』作品56の1",
+        "origTitle": "Dolly Suite, Op. 56 - I. Berceuse",
+        "composer": "G. フォーレ",
+        "composerEn": "Gabriel Fauré",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "MODERN",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ連弾",
+        "year": "1893年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Berceuse_by_Gabriel_Faur%C3%A9_op56_no1.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "優しさに包まれる午後… フランス音楽屈指の愛らしい子守歌",
+        "trivia": "BBCラジオの長寿番組テーマ曲としても知られる、誰をも微笑ませる温かな名曲。",
+        "history": "友人エマ・バルダックの幼い愛娘「ドリー」の誕生日にプレゼントされたピアノ連弾組曲の冒頭曲です。",
+        "point": "ゆったりと揺れるリズムと、フランス近代音楽ならではの甘く上品で洗練された和声。"
+    },
+    {
+        "id": "faure-elegie",
+        "title": "エレジー (悲歌) 作品24",
+        "origTitle": "Élégie in C minor, Op. 24",
+        "composer": "G. フォーレ",
+        "composerEn": "Gabriel Fauré",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "MODERN",
+        "inst": "strings",
+        "instLabel": "🎻 チェロとピアノ",
+        "year": "1880年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Faure_-_Elegie.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "チェロが咽び泣く悲痛な祈り… フォーレ初期の最高傑作",
+        "trivia": "チェロ奏者のリサイタルで必ず演奏される、深い哀悼と美しさを湛えた名曲。",
+        "history": "婚約破棄という人生の大きな失意の中で作曲されたと言われ、抑制された感情の奥に激しい痛哭が秘められています。",
+        "point": "重厚なC音の反復に乗せて歌われる、心に深く突き刺さる切実な旋律。"
+    },
+    {
+        "id": "elgar-pomp",
+        "title": "行進曲『威風堂々』第1番 ニ長調",
+        "origTitle": "Pomp and Circumstance March No. 1 in D major, Op. 39",
+        "composer": "E. エルガー",
+        "composerEn": "Edward Elgar",
+        "eras": [
+            "modern"
+        ],
+        "eraLabel": "MODERN",
+        "inst": "strings",
+        "instLabel": "🎻 吹奏楽・管弦楽",
+        "year": "1901年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/2/28/ELGAR_Pomp_and_Circumstance_in_D%2C_Opus_39%2C_No._1_-_United_States_Marine_Band.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "第2のイギリス国歌！世界中で鳴り響く歓喜の行進曲",
+        "trivia": "卒業式の定番曲、そしてイギリスの音楽祭プロムス（Proms）の熱狂的フィナーレでおなじみ。",
+        "history": "中間部の有名な旋律を聴いた国王エドワード7世が「この曲は世界中を駆け巡るだろう」と予言し、その通り歴史的アンセムとなりました。",
+        "point": "疾走する行進曲のリズムから一転し、全合奏で高らかに歌い上げられる感動的な希望の讃歌。"
+    },
+    {
+        "id": "elgar-nimrod",
+        "title": "エニグマ変奏曲より『ニムロード』",
+        "origTitle": "Enigma Variations, Op. 36 - IX. Nimrod (Adagio)",
+        "composer": "E. エルガー",
+        "composerEn": "Edward Elgar",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "MODERN",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1899年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/e/e7/Elgar%3B_Enigma_variations%2C_Theme_IX._Nimrod.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ロンドン五輪開会式でも涙を誘った、友情と感謝の讃歌",
+        "trivia": "英国の追悼式や国家行事で必ず演奏される、クラシック音楽で最も感動的なアダージョの一つ。",
+        "history": "失意の中にいたエルガーを励まし続けた親友イェーガー（ドイツ語で狩人を意味するため、狩人の祖ニムロードと命名）に捧げられました。",
+        "point": "息を殺すような静かなピアニッシモから、全オーケストラが愛と感謝を叫ぶような至福のクライマックス。"
+    },
+    {
+        "id": "holst-venus",
+        "title": "組曲『惑星』より「金星 (平和をもたらす者)」",
+        "origTitle": "The Planets, Op. 32 - II. Venus, the Bringer of Peace",
+        "composer": "G. ホルスト",
+        "composerEn": "Gustav Holst",
+        "eras": [
+            "modern",
+            "ambient"
+        ],
+        "eraLabel": "MODERN",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1914年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/4/4c/Holst-_venus.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "夜空に青白く輝く愛の星… 宇宙の究極のアンビエント",
+        "trivia": "激しい『火星』の直後に置かれた、深い静けさと透明な美しさに包まれる名楽章。",
+        "history": "ホルンとフルートが静かに呼び交わし、ハープとチェレスタが星屑のようにきらめきます。",
+        "point": "大気圏を抜けて静寂の宇宙空間を漂っているかのような、無重力の心地よい浮遊感。"
+    },
+    {
+        "id": "holst-mars",
+        "title": "組曲『惑星』より「火星 (戦争をもたらす者)」",
+        "origTitle": "The Planets, Op. 32 - I. Mars, the Bringer of War",
+        "composer": "G. ホルスト",
+        "composerEn": "Gustav Holst",
+        "eras": [
+            "modern"
+        ],
+        "eraLabel": "MODERN",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1914年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/5/54/Gustav_Holst_-_the_planets%2C_op._32_-_i._mars%2C_the_bringer_of_war.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "映画『スター・ウォーズ』のダース・ベイダーのテーマの元祖！",
+        "trivia": "映画音楽の巨匠ジョン・ウィリアムズも多大な影響を受けた、映画音楽の歴史的ルーツ。",
+        "history": "5拍子の不吉なオスティナート（執拗な反復リズム）に乗せて、迫り来る戦争の恐怖をリアルに描き出しました。",
+        "point": "金管楽器の咆哮と、金属的な打楽器が叩きつける異次元の緊迫感。"
+    },
+    {
+        "id": "mendelssohn-wedding-march",
+        "title": "劇音楽『夏の夜の夢』より「結婚行進曲」",
+        "origTitle": "A Midsummer Night's Dream, Op. 61 - Wedding March",
+        "composer": "F. メンデルスゾーン",
+        "composerEn": "Felix Mendelssohn",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 管弦楽",
+        "year": "1842年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/c/cb/A_Midsummer_Night%27s_Dream_Op._61_Wedding_March_%28Mendelssohn%29_European_Archive.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「パパパパーン！」世界中の花嫁を祝福する永遠のファンファーレ",
+        "trivia": "結婚式の新郎新婦退場曲として全世界で150年以上使われ続けている超有名曲。",
+        "history": "英国ヴィクトリア女王の長女ヴィクトリア王女の結婚式で使用されたことから世界中に大流行しました。",
+        "point": "トランペットの華やかなファンファーレに続く、誇らしく喜びに満ちた堂々たる行進。"
+    },
+    {
+        "id": "mendelssohn-nocturne",
+        "title": "劇音楽『夏の夜の夢』より「夜想曲 (ノクターン)」",
+        "origTitle": "A Midsummer Night's Dream, Op. 61 - Nocturne",
+        "composer": "F. メンデルスゾーン",
+        "composerEn": "Felix Mendelssohn",
+        "eras": [
+            "romantic",
+            "ambient"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 ホルンと管弦楽",
+        "year": "1842年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/d/de/A_Midsummer_Night%27s_Dream%2C_Op._61_-_Nocturne.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "妖精の森で眠る恋人たち… ホルンが奏でる極上の安らぎ",
+        "trivia": "夜の安眠BGMや、森の自然を描くドキュメンタリーで愛好される名品。",
+        "history": "シェイクスピアの戯曲で、妖精パックの魔法によって森でぐっすり眠り込む恋人たちの場面の音楽です。",
+        "point": "ホルンのまろやかで温かいソロと、ファゴットの優しい寄り添いが生み出す深い静寂。"
+    },
+    {
+        "id": "grieg-piano-concerto-1",
+        "title": "ピアノ協奏曲 イ短調 作品16 第1楽章",
+        "origTitle": "Piano Concerto in A minor, Op. 16 - I. Allegro molto moderato",
+        "composer": "E. グリーグ",
+        "composerEn": "Edvard Grieg",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ協奏曲",
+        "year": "1868年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Edvard_Grieg_-_piano_concerto_in_a_minor%2C_op._16_-_i._allegro_molto_moderato.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "ティンパニのクレッシェンドから滝のように雪崩れる冒頭！",
+        "trivia": "フィギュアスケートやCMで定番の、北欧のフィヨルドを思わせる壮大な名協奏曲。",
+        "history": "リストも初見で演奏して「完璧なスカンジナビアの傑作だ！」と激賞したグリーグ25歳の青春の金字塔です。",
+        "point": "冒頭の劇的な下降和音と、それに続く北欧民謡の哀愁を帯びた美しい第1主題。"
+    },
+    {
+        "id": "grieg-wedding-day",
+        "title": "抒情小曲集より『トロルドハウゲンの婚礼の日』",
+        "origTitle": "Lyric Pieces, Op. 65 - No. 6 'Wedding Day at Troldhaugen'",
+        "composer": "E. グリーグ",
+        "composerEn": "Edvard Grieg",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "piano",
+        "instLabel": "🎹 ピアノ独奏",
+        "year": "1896年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/7/74/Edvard-Grieg-Lyric-Pieces-Op-65_-No-6-Wedding-Day-at-Troldhaugen.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "銀婚式を祝う村人たちの陽気なステップと、愛の誓い",
+        "trivia": "ピアノ発表会の花形曲。華やかで心温まる北欧のお祝い音楽。",
+        "history": "グリーグと愛妻ニーナの結婚25周年（銀婚式）を記念して自宅トロルドハウゲンで開かれた祝宴のために書かれました。",
+        "point": "フィドルのリズムを模した陽気なお祝いのダンスと、中間部でしっとりと回想される夫婦の愛の旋律。"
+    },
+    {
+        "id": "paganini-caprice-24",
+        "title": "24の奇想曲 (カプリース) より 第24番 イ短調",
+        "origTitle": "24 Caprices for Solo Violin, Op. 1 - No. 24 in A minor",
+        "composer": "N. パガニーニ",
+        "composerEn": "Niccolò Paganini",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 バイオリン独奏",
+        "year": "1817年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/1/17/Paganini_Caprice-24.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "悪魔に魂を売ったバイオリニスト！変奏曲の最高峰",
+        "trivia": "ブラームスもラフマニノフもこの主題で大作を書いた、音楽史上最も有名なテーマ。",
+        "history": "パガニーニの死後まで誰一人として演奏できなかったと言われる、左手ピチカートや超高速アルペジオが炸裂する究極の難曲です。",
+        "point": "たった1本のバイオリンが繰り広げる、信じられないほどの多彩な音色とアクロバティックな技巧。"
+    },
+    {
+        "id": "sarasate-zigeunerweisen",
+        "title": "ツィゴイネルワイゼン (ジプシーの歌) 作品20",
+        "origTitle": "Zigeunerweisen, Op. 20",
+        "composer": "P. デ・サラサーテ",
+        "composerEn": "Pablo de Sarasate",
+        "eras": [
+            "romantic"
+        ],
+        "eraLabel": "ROMANTIC",
+        "inst": "strings",
+        "instLabel": "🎻 バイオリンと管弦楽",
+        "year": "1878年",
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Zigeunerweisen_F%C3%A9ret.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+        "headline": "「チャルダッシュ」の哀愁から熱狂のダンスへ！",
+        "trivia": "バラエティ番組や手品、ドラマのドラマチックなシーンで世界中で使われる名曲。",
+        "history": "スペインの名バイオリニスト・サラサーテがブダペストを訪れた際、ジプシー（ロマ）の音楽に魅せられて作曲しました。",
+        "point": "胸を締め付ける悲しみの即興的な歌（ラッシュー）から、突如超高速で駆け抜ける熱狂の踊り（フリスカ）への大転換。"
+    }
+];
+
+    // --- DOM要素 ---
+    const audio = document.getElementById("audioPlayer");
+    const playBtn = document.getElementById("playBtn");
+    const playIcon = document.getElementById("playIcon");
+    const pauseIcon = document.getElementById("pauseIcon");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const shuffleBtn = document.getElementById("shuffleBtn");
+    const loopBtn = document.getElementById("loopBtn");
+    const muteBtn = document.getElementById("muteBtn");
+    const vinylRecord = document.getElementById("vinylRecord");
+    const recordArm = document.getElementById("recordArm");
+    const progressContainer = document.getElementById("progressContainer");
+    const progressBar = document.getElementById("progressBar");
+    const currentTimeEl = document.getElementById("currentTime");
+    const totalTimeEl = document.getElementById("totalTime");
+    const playlistContainer = document.getElementById("playlistContainer");
+
+    const currentTitle = document.getElementById("currentTitle");
+    const currentComposer = document.getElementById("currentComposer");
+    const currentEraBadge = document.getElementById("currentEraBadge");
+    const currentInstBadge = document.getElementById("currentInstBadge");
+
+    const descToggle = document.getElementById("descToggle");
+    const toggleKnob = document.getElementById("toggleKnob");
+    const descCard = document.getElementById("descCard");
+    const descHeadline = document.getElementById("descHeadline");
+    const descTrivia = document.getElementById("descTrivia");
+    const descHistory = document.getElementById("descHistory");
+    const descPoint = document.getElementById("descPoint");
+
+    // --- 状態管理 ---
+    let currentIndex = 0;
+    let isPlaying = false;
+    let isLooping = false;
+    let isShuffle = false;
+    let playHistory = [];
+    let isDescOpen = false;
+    let currentEraFilter = "all";
+    let currentInstFilter = "all";
+
+    function getFilteredTracks() {
+      return TRACKS.filter(t => {
+        const eraMatch = currentEraFilter === "all" || (t.eras && t.eras.includes(currentEraFilter));
+        const instMatch = currentInstFilter === "all" || t.inst === currentInstFilter;
+        return eraMatch && instMatch;
+      });
+    }
+
+    // --- シャッフル / ナビゲーション計算 ---
+    function getNextTrackIndex() {
+      const filtered = getFilteredTracks();
+      if (filtered.length <= 1) return 0;
+      if (isShuffle) {
+        let rand;
+        do {
+          rand = Math.floor(Math.random() * filtered.length);
+        } while (rand === currentIndex && filtered.length > 1);
+        return rand;
+      }
+      return (currentIndex + 1) % filtered.length;
+    }
+
+    function getPrevTrackIndex() {
+      const filtered = getFilteredTracks();
+      if (filtered.length <= 1) return 0;
+      if (isShuffle && playHistory.length > 1) {
+        playHistory.pop(); // 現在の曲を取り除く
+        return playHistory[playHistory.length - 1]; // 1つ前の曲
+      }
+      return (currentIndex - 1 + filtered.length) % filtered.length;
+    }
+
+    // --- 曲読み込み ---
+    function loadTrack(index, autoPlay = false, recordHistory = true) {
+      const filtered = getFilteredTracks();
+      if (!filtered.length) return;
+
+      currentIndex = Math.max(0, Math.min(index, filtered.length - 1));
+      const track = filtered[currentIndex];
+
+      if (recordHistory) {
+        if (!playHistory.length || playHistory[playHistory.length - 1] !== currentIndex) {
+          playHistory.push(currentIndex);
+          if (playHistory.length > 50) playHistory.shift();
+        }
+      }
+
+      audio.src = track.src;
+      currentTitle.textContent = track.title;
+      currentComposer.textContent = `${track.composer} (${track.year})`;
+      currentEraBadge.textContent = track.eraLabel;
+      currentInstBadge.textContent = track.instLabel;
+
+      // 解説カード更新
+      descHeadline.textContent = track.headline;
+      descTrivia.textContent = track.trivia;
+      descHistory.textContent = track.history;
+      descPoint.textContent = track.point;
+
+      progressBar.style.width = "0%";
+      currentTimeEl.textContent = "0:00";
+      totalTimeEl.textContent = "0:00";
+
+      renderPlaylist();
+
+      if (autoPlay) {
+        playTrack();
+      }
+    }
+
+    function playTrack() {
+      audio.play().then(() => {
+        isPlaying = true;
+        playIcon.classList.add("hidden");
+        pauseIcon.classList.remove("hidden");
+        vinylRecord.classList.remove("paused");
+        recordArm.style.transform = "rotate(0deg)";
+        renderPlaylist();
+      }).catch(err => {
+        console.warn("Autoplay prevented or network delay:", err);
+      });
+    }
+
+    function pauseTrack() {
+      audio.pause();
+      isPlaying = false;
+      playIcon.classList.remove("hidden");
+      pauseIcon.classList.add("hidden");
+      vinylRecord.classList.add("paused");
+      recordArm.style.transform = "rotate(-25deg)";
+      renderPlaylist();
+    }
+
+    playBtn.addEventListener("click", () => {
+      if (isPlaying) {
+        pauseTrack();
+      } else {
+        playTrack();
+      }
+    });
+
+    prevBtn.addEventListener("click", () => {
+      const prev = getPrevTrackIndex();
+      loadTrack(prev, true, false);
+    });
+
+    nextBtn.addEventListener("click", () => {
+      const next = getNextTrackIndex();
+      loadTrack(next, true, true);
+    });
+
+    shuffleBtn.addEventListener("click", () => {
+      isShuffle = !isShuffle;
+      shuffleBtn.classList.toggle("text-amber-400", isShuffle);
+      shuffleBtn.classList.toggle("text-slate-400", !isShuffle);
+    });
+
+    loopBtn.addEventListener("click", () => {
+      isLooping = !isLooping;
+      audio.loop = isLooping;
+      loopBtn.classList.toggle("text-amber-400", isLooping);
+      loopBtn.classList.toggle("text-slate-400", !isLooping);
+    });
+
+    muteBtn.addEventListener("click", () => {
+      audio.muted = !audio.muted;
+      muteBtn.classList.toggle("text-rose-400", audio.muted);
+      muteBtn.classList.toggle("text-slate-400", !audio.muted);
+    });
+
+    audio.addEventListener("ended", () => {
+      if (!isLooping) {
+        const next = getNextTrackIndex();
+        loadTrack(next, true, true);
+      }
+    });
+
+    // --- シークバー ---
+    function formatTime(sec) {
+      if (isNaN(sec)) return "0:00";
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    audio.addEventListener("loadedmetadata", () => {
+      totalTimeEl.textContent = formatTime(audio.duration);
+    });
+
+    audio.addEventListener("timeupdate", () => {
+      if (!audio.duration) return;
+      const pct = (audio.currentTime / audio.duration) * 100;
+      progressBar.style.width = `${pct}%`;
+      currentTimeEl.textContent = formatTime(audio.currentTime);
+    });
+
+    progressContainer.addEventListener("click", (e) => {
+      if (!audio.duration) return;
+      const rect = progressContainer.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      audio.currentTime = pos * audio.duration;
+    });
+
+    // --- 📖 解説モードトグル ---
+    descToggle.addEventListener("click", () => {
+      isDescOpen = !isDescOpen;
+      descCard.classList.toggle("hidden", !isDescOpen);
+      if (isDescOpen) {
+        descToggle.classList.replace("bg-slate-700", "bg-amber-500");
+        toggleKnob.classList.replace("translate-x-0", "translate-x-5");
+        toggleKnob.classList.replace("bg-slate-300", "bg-slate-950");
+      } else {
+        descToggle.classList.replace("bg-amber-500", "bg-slate-700");
+        toggleKnob.classList.replace("translate-x-5", "translate-x-0");
+        toggleKnob.classList.replace("bg-slate-950", "bg-slate-300");
+      }
+    });
+
+    // --- プレイリスト描画 ---
+    function renderPlaylist() {
+      const filtered = getFilteredTracks();
+      document.getElementById("categoryCount").textContent = `${filtered.length} 曲表示中`;
+
+      playlistContainer.innerHTML = "";
+      if (filtered.length === 0) {
+        playlistContainer.innerHTML = `<div class="text-xs text-slate-500 py-4 text-center">該当する曲がありません</div>`;
+        return;
+      }
+
+      filtered.forEach((track, idx) => {
+        const isCurrent = idx === currentIndex;
+        const item = document.createElement("div");
+        item.className = `p-2 rounded-lg flex items-center justify-between text-xs cursor-pointer transition-all border ${
+          isCurrent
+            ? "bg-amber-500/15 border-amber-500/40 text-amber-300 shadow-sm"
+            : "bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/60 hover:text-white"
+        }`;
+        item.innerHTML = `
+          <div class="flex items-center gap-2 overflow-hidden">
+            <span class="font-mono text-[10px] ${isCurrent ? 'text-amber-400 font-bold' : 'text-slate-500'}">${idx < 9 ? '0' : ''}${idx + 1}</span>
+            <div class="truncate">
+              <div class="font-semibold truncate">${track.title}</div>
+              <div class="text-[10px] text-slate-400 truncate">${track.composer}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700/60 text-slate-400 font-mono">${track.eraLabel}</span>
+            ${isCurrent && isPlaying ? '<span class="text-amber-400 text-xs animate-pulse">▶</span>' : ''}
+          </div>
+        `;
+        item.addEventListener("click", () => {
+          loadTrack(idx, true);
+        });
+        playlistContainer.appendChild(item);
+      });
+    }
+
+    // --- フィルター操作 ---
+    document.querySelectorAll(".era-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".era-btn").forEach(b => {
+          b.className = "era-btn px-2.5 py-1 text-xs rounded-lg font-medium transition-all bg-slate-950/60 text-slate-400 border border-slate-800 hover:text-slate-200";
+        });
+        btn.className = "era-btn px-2.5 py-1 text-xs rounded-lg font-medium transition-all bg-amber-500 text-slate-950 font-bold shadow-sm";
+        currentEraFilter = btn.dataset.era;
+        playHistory = [];
+        loadTrack(0, false, true);
+      });
+    });
+
+    document.querySelectorAll(".inst-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".inst-btn").forEach(b => {
+          b.className = "inst-btn px-2 py-0.5 rounded-full text-[11px] font-medium text-slate-400 border border-transparent hover:text-slate-200";
+        });
+        btn.className = "inst-btn px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-amber-400 border border-amber-500/30";
+        currentInstFilter = btn.dataset.inst;
+        playHistory = [];
+        loadTrack(0, false, true);
+      });
+    });
+
+    // 初期読み込み
+    loadTrack(0, false);
+  </script>
+</body>
+</html>
